@@ -139,7 +139,7 @@ public class AttunityRdbmsHandler extends AttunityCdcHandler {
         BsonDocument afterDoc = valueDoc.getDocument(JSON_DOC_WRAPPER_FIELD).getDocument(JSON_DOC_AFTER_FIELD);
         BsonDocument updates = new BsonDocument();
         for (String key : afterDoc.keySet()){
-            if (afterDoc.get(key).equals(beforeDoc.get(key))){
+            if (!afterDoc.get(key).equals(beforeDoc.get(key))){
                 updates.put(key,afterDoc.get(key));
             }
         }
