@@ -20,6 +20,7 @@ package com.mongodb.kafka.connect.sink.cdc.attunity.rdbms.oracle;
 
 import com.mongodb.client.model.DeleteOneModel;
 import com.mongodb.client.model.ReplaceOneModel;
+import com.mongodb.client.model.UpdateOneModel;
 import com.mongodb.client.model.WriteModel;
 import com.mongodb.kafka.connect.sink.cdc.debezium.OperationType;
 import com.mongodb.kafka.connect.sink.converter.SinkDocument;
@@ -118,8 +119,7 @@ class AttunityRdbmsHandlerTest {
                 dynamicTest("test operation " + OperationType.CREATE, () -> {
                     Optional<WriteModel<BsonDocument>> result =
                             RDBMS_HANDLER_DEFAULT_MAPPING.handle(new SinkDocument(
-                                    BsonDocument.parse("{id: 1234}"), BsonDocument.parse("{message: { data: {id: 1234, foo: 'bar'}, headers: { operation: 'INSERT'}}}"))
-                            );
+                                    BsonDocument.parse("{id: 1234}"), BsonDocument.parse("{message: { data: {id: 1234, foo: 'bar'}, headers: { operation: 'INSERT'}}}")));
                     assertTrue(result.isPresent());
                     assertTrue(result.get() instanceof ReplaceOneModel, "result expected to be of type ReplaceOneModel");
 
@@ -139,7 +139,7 @@ class AttunityRdbmsHandlerTest {
                                     BsonDocument.parse("{id: 1234}"), BsonDocument.parse("{message : { data: {id: 1234, foo: 'bar'}, headers: { operation: 'UPDATE'}}}"))
                             );
                     assertTrue(result.isPresent());
-                    assertTrue(result.get() instanceof ReplaceOneModel, "result expected to be of type ReplaceOneModel");
+                    assertTrue(result.get() instanceof UpdateOneModel, "result expected to be of type ReplaceOneModel");
 
                 }),
                 dynamicTest("test operation " + OperationType.DELETE, () -> {

@@ -20,6 +20,7 @@ package com.mongodb.kafka.connect.sink.cdc;
 
 import java.util.Optional;
 
+import org.apache.kafka.clients.producer.KafkaProducer;
 import org.bson.BsonDocument;
 
 import com.mongodb.client.model.WriteModel;
@@ -40,5 +41,6 @@ public abstract class CdcHandler {
     }
 
     public abstract Optional<WriteModel<BsonDocument>> handle(SinkDocument doc);
+    public abstract Optional<WriteModel<BsonDocument>> handle(SinkDocument doc, KafkaProducer<String,String> dlqProducer);
 
 }

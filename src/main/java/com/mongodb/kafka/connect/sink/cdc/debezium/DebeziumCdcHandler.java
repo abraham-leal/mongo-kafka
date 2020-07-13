@@ -21,6 +21,7 @@ package com.mongodb.kafka.connect.sink.cdc.debezium;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.connect.errors.DataException;
 
 import org.bson.BsonDocument;

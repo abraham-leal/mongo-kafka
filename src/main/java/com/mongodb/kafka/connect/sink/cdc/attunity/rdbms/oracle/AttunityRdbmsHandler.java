@@ -27,6 +27,8 @@ import com.mongodb.kafka.connect.sink.MongoSinkTopicConfig;
 import com.mongodb.kafka.connect.sink.cdc.CdcOperation;
 import com.mongodb.kafka.connect.sink.cdc.debezium.OperationType;
 import com.mongodb.kafka.connect.sink.converter.SinkDocument;
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.connect.errors.DataException;
 import org.bson.BsonDocument;
 import org.bson.BsonInvalidOperationException;
@@ -63,7 +65,7 @@ public class AttunityRdbmsHandler extends AttunityCdcHandler {
     }
 
     @Override
-    public Optional<WriteModel<BsonDocument>> handle(final SinkDocument doc) {
+    public Optional<WriteModel<BsonDocument>> handle(SinkDocument doc) {
 
         BsonDocument keyDoc = doc.getKeyDoc().orElseGet(BsonDocument::new);
 
@@ -78,6 +80,33 @@ public class AttunityRdbmsHandler extends AttunityCdcHandler {
                 .perform(new SinkDocument(keyDoc, valueDoc)));
     }
 
+    @Override
+    public Optional<WriteModel<BsonDocument>> handle(final SinkDocument doc, KafkaProducer<String, String> dlqProducer) {
+
+        BsonDocument keyDoc = doc.getKeyDoc().orElseGet(BsonDocument::new);
+
+        BsonDocument valueDoc = doc.getValueDoc().orElseGet(BsonDocument::new);
+
+        if (valueDoc.isEmpty()) {
+            LOGGER.debug("skipping attunity tombstone event for kafka topic compaction");
+            return Optional.empty();
+        }
+
+        try{
+            return Optional.of(getCdcOperation(valueDoc)
+                    .perform(new SinkDocument(keyDoc, valueDoc)));
+        }catch(Exception e){
+            ProducerRecord<String,String> badRecord = new ProducerRecord<>(
+                    getConfig().originals().get("errors.deadletterqueue.topic.name").toString(),
+                    doc.getKeyDoc().toString(),
+                    doc.getValueDoc().toString());
+            badRecord.headers().add("stacktrace", e.toString().getBytes());
+            dlqProducer.send(badRecord);
+            LOGGER.info("Bad Record, sending to DLQ...");
+            return Optional.empty();
+        }
+
+    }
     static BsonDocument generateFilterDoc(final BsonDocument keyDoc, final BsonDocument valueDoc, final OperationType opType) {
         if (keyDoc.keySet().isEmpty()) {
             if (opType.equals(OperationType.CREATE) || opType.equals(OperationType.READ)) {

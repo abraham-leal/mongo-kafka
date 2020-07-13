@@ -24,19 +24,16 @@ import static com.mongodb.kafka.connect.sink.MongoSinkTopicConfig.RETRIES_DEFER_
 import static com.mongodb.kafka.connect.util.ConfigHelper.getMongoDriverInformation;
 import static java.util.Collections.emptyList;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
+import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.errors.RetriableException;
@@ -66,7 +63,7 @@ public class MongoSinkTask extends SinkTask {
     private static final Logger LOGGER = LoggerFactory.getLogger(MongoSinkTask.class);
     private static final String CONNECTOR_TYPE = "sink";
     private static final BulkWriteOptions BULK_WRITE_OPTIONS = new BulkWriteOptions();
-
+    private KafkaProducer<String,String> dlqProducer;
     private MongoSinkConfig sinkConfig;
     private MongoClient mongoClient;
     private Map<String, AtomicInteger> remainingRetriesTopicMap;
@@ -84,6 +81,25 @@ public class MongoSinkTask extends SinkTask {
      */
     @Override
     public void start(final Map<String, String> props) {
+        LOGGER.info("Starting DLQ Producer for bad records");
+        if(props.get("errors.tolerance").equalsIgnoreCase("all")
+                && props.get("customdlq.enabled").equalsIgnoreCase("true")){
+            try {
+                Map<String,Object> producerProps = new HashMap<>();
+                producerProps.put("sasl.mechanism",props.get("customdlq.sasl.mechanism"));
+                producerProps.put("security.protocol",props.get("customdlq.security.protocol"));
+                producerProps.put("sasl.jaas.config",props.get("customdlq.sasl.jaas.config"));
+                producerProps.put("bootstrap.servers",props.get("customdlq.bootstrap.servers"));
+                producerProps.put("client.id", props.get("name") + "-dlqProducer-" + UUID.randomUUID().toString());
+                producerProps.put("key.serializer", StringSerializer.class);
+                producerProps.put("value.serializer",StringSerializer.class);
+                dlqProducer = new KafkaProducer<String, String>(producerProps);
+            }catch(Exception e){
+                LOGGER.info("The DLQ Producer failed to be created. Connector will continue but will " +
+                        "not send any records to the DLQ");
+            }
+        }
+
         LOGGER.info("Starting MongoDB sink task");
         try {
             sinkConfig = new MongoSinkConfig(props);
@@ -157,6 +173,10 @@ public class MongoSinkTask extends SinkTask {
         LOGGER.info("Stopping MongoDB sink task");
         if (mongoClient != null) {
             mongoClient.close();
+        }
+        if (dlqProducer != null) {
+            dlqProducer.flush();
+            dlqProducer.close();
         }
     }
 
@@ -257,10 +277,20 @@ public class MongoSinkTask extends SinkTask {
 
     List<? extends WriteModel<BsonDocument>> buildWriteModelCDC(final MongoSinkTopicConfig config, final Collection<SinkRecord> records) {
         LOGGER.debug("Building CDC write model for {} record(s) for topic {}", records.size(), config.getTopic());
-        return records.stream()
-                .map(sinkConverter::convert)
-                .map(sd -> config.getCdcHandler().flatMap(c -> c.handle(sd)))
-                .flatMap(o -> o.map(Stream::of).orElseGet(Stream::empty))
-                .collect(Collectors.toList());
+        if(dlqProducer != null){
+            return records.stream()
+                    .map(sinkConverter::convert)
+                    .map(sd -> config.getCdcHandler().flatMap(c -> c.handle(sd, dlqProducer)))
+                    .flatMap(o -> o.map(Stream::of).orElseGet(Stream::empty))
+                    .collect(Collectors.toList());
+        }
+        else{
+            return records.stream()
+                    .map(sinkConverter::convert)
+                    .map(sd -> config.getCdcHandler().flatMap(c -> c.handle(sd)))
+                    .flatMap(o -> o.map(Stream::of).orElseGet(Stream::empty))
+                    .collect(Collectors.toList());
+        }
+
     }
 }
