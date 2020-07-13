@@ -25,7 +25,6 @@ import com.mongodb.kafka.connect.sink.MongoSinkTopicConfig;
 import com.mongodb.kafka.connect.sink.cdc.CdcHandler;
 import com.mongodb.kafka.connect.sink.cdc.CdcOperation;
 import com.mongodb.kafka.connect.sink.cdc.debezium.OperationType;
-import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.connect.errors.DataException;
 import org.bson.BsonDocument;
 
