@@ -28,10 +28,7 @@ import com.mongodb.kafka.connect.sink.cdc.CdcOperation;
 import com.mongodb.kafka.connect.sink.cdc.debezium.OperationType;
 import com.mongodb.kafka.connect.sink.converter.SinkDocument;
 import org.apache.kafka.connect.errors.DataException;
-import org.bson.BsonDocument;
-import org.bson.BsonInvalidOperationException;
-import org.bson.BsonObjectId;
-import org.bson.BsonString;
+import org.bson.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,6 +38,7 @@ import java.util.Optional;
 
 public class AttunityRdbmsHandler extends AttunityCdcHandler {
     static final String ID_FIELD = "_id";
+    static Boolean transcriber_enabled = false;
     private static final String JSON_DOC_BEFORE_FIELD = "beforeData";
     private static final String JSON_DOC_AFTER_FIELD = "data";
     private static final String JSON_DOC_WRAPPER_FIELD = "message";
@@ -68,6 +66,14 @@ public class AttunityRdbmsHandler extends AttunityCdcHandler {
         BsonDocument keyDoc = doc.getKeyDoc().orElseGet(BsonDocument::new);
 
         BsonDocument valueDoc = doc.getValueDoc().orElseGet(BsonDocument::new);
+
+        // Feature Flagged: Enable transcribing the fields in the key into the Value
+        // Property key.transcriber.enabled must be "true"
+        // This will apply for all operations. Inserts, Updates, and Removes will
+        // have the key in the "data" structure
+        if (getConfig().originals().get("key.transcriber.enabled").toString().equalsIgnoreCase("true")){
+            transcriber_enabled = true;
+        }
 
         if (valueDoc.isEmpty()) {
             LOGGER.debug("skipping attunity tombstone event for kafka topic compaction");
@@ -115,6 +121,9 @@ public class AttunityRdbmsHandler extends AttunityCdcHandler {
         BsonDocument upsertDoc = new BsonDocument();
         if (filterDoc.containsKey(ID_FIELD)) {
             upsertDoc.put(ID_FIELD, filterDoc.get(ID_FIELD));
+            if (transcriber_enabled){
+                upsertDoc.putAll(filterDoc.getDocument(ID_FIELD));
+            }
         }
 
         BsonDocument afterDoc = valueDoc.getDocument(JSON_DOC_WRAPPER_FIELD).getDocument(JSON_DOC_AFTER_FIELD);
