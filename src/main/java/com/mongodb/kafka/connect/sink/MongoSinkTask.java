@@ -86,8 +86,8 @@ public class MongoSinkTask extends SinkTask {
                 && props.get("customdlq.enabled").equalsIgnoreCase("true")){
             try {
                 Map<String,Object> producerProps = new HashMap<>();
-                producerProps.put("sasl.mechanism",props.get("customdlq.sasl.mechanism"));
-                producerProps.put("security.protocol",props.get("customdlq.security.protocol"));
+                producerProps.put("sasl.mechanism",(props.get("customdlq.sasl.mechanism")==null ? "GSSAPI" : props.get("customdlq.sasl.mechanism")));
+                producerProps.put("security.protocol",(props.get("customdlq.security.protocol")==null ? "PLAINTEXT" : props.get("customdlq.security.protocol")));
                 producerProps.put("sasl.jaas.config",props.get("customdlq.sasl.jaas.config"));
                 producerProps.put("bootstrap.servers",props.get("customdlq.bootstrap.servers"));
                 producerProps.put("client.id", props.get("name") + "-dlqProducer-" + UUID.randomUUID().toString());
