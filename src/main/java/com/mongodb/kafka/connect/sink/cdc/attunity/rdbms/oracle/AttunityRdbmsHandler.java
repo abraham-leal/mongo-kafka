@@ -98,8 +98,8 @@ public class AttunityRdbmsHandler extends AttunityCdcHandler {
         }catch(Exception e){
             ProducerRecord<String,String> badRecord = new ProducerRecord<>(
                     getConfig().originals().get("errors.deadletterqueue.topic.name").toString(),
-                    doc.getKeyDoc().toString(),
-                    doc.getValueDoc().toString());
+                    keyDoc.toJson(),
+                    valueDoc.toJson());
             badRecord.headers().add("stacktrace", e.toString().getBytes());
             dlqProducer.send(badRecord);
             LOGGER.info("Bad Record, sending to DLQ...");
