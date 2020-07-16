@@ -22,6 +22,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
+import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.connect.errors.DataException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -60,6 +61,27 @@ public class MongoDbHandler extends DebeziumCdcHandler {
     @Override
     public Optional<WriteModel<BsonDocument>> handle(final SinkDocument doc) {
 
+        BsonDocument keyDoc = doc.getKeyDoc().orElseThrow(
+                () -> new DataException("Error: key document must not be missing for CDC mode")
+        );
+
+        BsonDocument valueDoc = doc.getValueDoc()
+                .orElseGet(BsonDocument::new);
+
+        if (keyDoc.containsKey(JSON_ID_FIELD)
+                && valueDoc.isEmpty()) {
+            LOGGER.debug("skipping debezium tombstone event for kafka topic compaction");
+            return Optional.empty();
+        }
+
+        LOGGER.debug("key: " + keyDoc.toString());
+        LOGGER.debug("value: " + valueDoc.toString());
+
+        return Optional.of(getCdcOperation(valueDoc).perform(doc));
+    }
+
+    @Override
+    public Optional<WriteModel<BsonDocument>> handle(SinkDocument doc, KafkaProducer<String, String> dlqProducer) {
         BsonDocument keyDoc = doc.getKeyDoc().orElseThrow(
                 () -> new DataException("Error: key document must not be missing for CDC mode")
         );

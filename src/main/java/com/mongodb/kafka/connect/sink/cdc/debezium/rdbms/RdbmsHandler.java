@@ -22,6 +22,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
+import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.connect.errors.DataException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -63,6 +64,21 @@ public class RdbmsHandler extends DebeziumCdcHandler {
     @Override
     public Optional<WriteModel<BsonDocument>> handle(final SinkDocument doc) {
 
+        BsonDocument keyDoc = doc.getKeyDoc().orElseGet(BsonDocument::new);
+
+        BsonDocument valueDoc = doc.getValueDoc().orElseGet(BsonDocument::new);
+
+        if (valueDoc.isEmpty()) {
+            LOGGER.debug("skipping debezium tombstone event for kafka topic compaction");
+            return Optional.empty();
+        }
+
+        return Optional.of(getCdcOperation(valueDoc)
+                .perform(new SinkDocument(keyDoc, valueDoc)));
+    }
+
+    @Override
+    public Optional<WriteModel<BsonDocument>> handle(SinkDocument doc, KafkaProducer<String, String> dlqProducer) {
         BsonDocument keyDoc = doc.getKeyDoc().orElseGet(BsonDocument::new);
 
         BsonDocument valueDoc = doc.getValueDoc().orElseGet(BsonDocument::new);
