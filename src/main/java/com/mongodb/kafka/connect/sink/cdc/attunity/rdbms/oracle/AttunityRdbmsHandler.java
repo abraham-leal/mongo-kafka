@@ -40,7 +40,6 @@ import java.util.Optional;
 
 public class AttunityRdbmsHandler extends AttunityCdcHandler {
     static final String ID_FIELD = "_id";
-    static Boolean transcriber_enabled = false;
     private static final String JSON_DOC_BEFORE_FIELD = "beforeData";
     private static final String JSON_DOC_AFTER_FIELD = "data";
     private static final String JSON_DOC_WRAPPER_FIELD = "message";
@@ -69,17 +68,22 @@ public class AttunityRdbmsHandler extends AttunityCdcHandler {
 
         BsonDocument valueDoc = doc.getValueDoc().orElseGet(BsonDocument::new);
 
+        if (valueDoc.isEmpty()) {
+            LOGGER.debug("skipping attunity tombstone event for kafka topic compaction");
+            return Optional.empty();
+        }
+
         // Feature Flagged: Enable transcribing the fields in the key into the Value
         // Property key.transcriber.enabled must be "true"
         // This will apply for all operations. Inserts, Updates, and Removes will
         // have the key in the "data" structure
-        if (getConfig().originals().get("key.transcriber.enabled").toString().equalsIgnoreCase("true")){
-            transcriber_enabled = true;
-        }
-
-        if (valueDoc.isEmpty()) {
-            LOGGER.debug("skipping attunity tombstone event for kafka topic compaction");
-            return Optional.empty();
+        String key_transcriber = getConfig().originals().get("key.transcriber.enabled")!=null
+                ? getConfig().originals().get("key.transcriber.enabled").toString()
+                : "false";
+        if (key_transcriber.equalsIgnoreCase("true")){
+            for (String keyIn : keyDoc.keySet()){
+                valueDoc.getDocument(JSON_DOC_WRAPPER_FIELD).getDocument(JSON_DOC_AFTER_FIELD).append(keyIn, keyDoc.get(keyIn));
+            }
         }
 
         return Optional.of(getCdcOperation(valueDoc)
@@ -96,6 +100,19 @@ public class AttunityRdbmsHandler extends AttunityCdcHandler {
         if (valueDoc.isEmpty()) {
             LOGGER.debug("skipping attunity tombstone event for kafka topic compaction");
             return Optional.empty();
+        }
+
+        // Feature Flagged: Enable transcribing the fields in the key into the Value
+        // Property key.transcriber.enabled must be "true"
+        // This will apply for all operations. Inserts, Updates, and Removes will
+        // have the key in the "data" structure
+        String key_transcriber = getConfig().originals().get("key.transcriber.enabled")!=null
+                ? getConfig().originals().get("key.transcriber.enabled").toString()
+                : "false";
+        if (key_transcriber.equalsIgnoreCase("true")){
+            for (String keyIn : keyDoc.keySet()){
+                valueDoc.getDocument(JSON_DOC_WRAPPER_FIELD).getDocument(JSON_DOC_AFTER_FIELD).append(keyIn, keyDoc.get(keyIn));
+            }
         }
 
         try{
@@ -148,18 +165,14 @@ public class AttunityRdbmsHandler extends AttunityCdcHandler {
         }
 
         BsonDocument upsertDoc = new BsonDocument();
+
         if (filterDoc.containsKey(ID_FIELD)) {
             upsertDoc.put(ID_FIELD, filterDoc.get(ID_FIELD));
-            if (transcriber_enabled){
-                upsertDoc.putAll(filterDoc.getDocument(ID_FIELD));
-            }
         }
 
         BsonDocument afterDoc = valueDoc.getDocument(JSON_DOC_WRAPPER_FIELD).getDocument(JSON_DOC_AFTER_FIELD);
         for (String f : afterDoc.keySet()) {
-            if (!keyDoc.containsKey(f)) {
-                upsertDoc.put(f, afterDoc.get(f));
-            }
+            upsertDoc.put(f, afterDoc.get(f));
         }
         return upsertDoc;
     }
