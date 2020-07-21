@@ -136,7 +136,7 @@ class AttunityRdbmsHandlerTest {
                 dynamicTest("test operation " + OperationType.UPDATE, () -> {
                     Optional<WriteModel<BsonDocument>> result =
                             RDBMS_HANDLER_DEFAULT_MAPPING.handle(new SinkDocument(
-                                    BsonDocument.parse("{id: 1234}"), BsonDocument.parse("{message : { data: {id: 1234, foo: 'bar'}, headers: { operation: 'UPDATE'}}}"))
+                                    BsonDocument.parse("{id: 1234}"), BsonDocument.parse("{message : { data: {id: 1234, foo: 'bar'}, beforeData: {id: 4321, foo: 'foo'}, headers: { operation: 'UPDATE'}}}"))
                             );
                     assertTrue(result.isPresent());
                     assertTrue(result.get() instanceof UpdateOneModel, "result expected to be of type ReplaceOneModel");

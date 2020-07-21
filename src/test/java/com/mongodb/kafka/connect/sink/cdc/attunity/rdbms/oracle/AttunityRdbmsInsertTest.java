@@ -40,7 +40,7 @@ class AttunityRdbmsInsertTest {
         BsonDocument filterDoc = BsonDocument.parse("{_id: {id: 1234}}");
         BsonDocument replacementDoc = BsonDocument.parse("{_id: {id: 1234}, first_name: 'Grace', last_name: 'Hopper'}");
         BsonDocument keyDoc = BsonDocument.parse("{id: 1234}");
-        BsonDocument valueDoc = BsonDocument.parse("{message: { headers: { operation: 'CREATE'}, data: {id: 1234, first_name: 'Grace', last_name: 'Hopper'}}}");
+        BsonDocument valueDoc = BsonDocument.parse("{message: { headers: { operation: 'CREATE'}, data: {first_name: 'Grace', last_name: 'Hopper'}}}");
 
         WriteModel<BsonDocument> result = RDBMS_INSERT.perform(new SinkDocument(keyDoc, valueDoc));
         assertTrue(result instanceof ReplaceOneModel, "result expected to be of type ReplaceOneModel");
