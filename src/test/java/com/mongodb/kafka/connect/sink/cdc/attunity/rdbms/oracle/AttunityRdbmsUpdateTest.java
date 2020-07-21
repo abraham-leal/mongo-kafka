@@ -36,14 +36,15 @@ class AttunityRdbmsUpdateTest {
     private static final AttunityRdbmsUpdate RDBMS_UPDATE = new AttunityRdbmsUpdate();
     private static final BsonDocument FILTER_DOC = BsonDocument.parse("{_id: {table: 1234, key: 43214}}");
     private static final BsonDocument AFTER_DOC = BsonDocument.parse("{first_name: 'Grace', last_name: 'Hopper'}");
+    private static final BsonDocument HEADER_DOC = BsonDocument.parse("{operation: 'UPDATE'}");
+    private static final BsonDocument BEFORE_DOC = BsonDocument.parse("{first_name: 'Julie', last_name: 'NotHooper'}");
     private static final BsonDocument UPDATE_DOC = BsonDocument.parse("{ $set: {first_name: 'Grace', last_name: 'Hopper'}}");
 
     @Test
     @DisplayName("when valid doc change cdc event then correct UpdateOneModel")
     void testValidSinkDocumentForUpdate() {
         BsonDocument keyDoc = BsonDocument.parse("{table: 1234, key: 43214}");
-        BsonDocument valueDoc = new BsonDocument("headers", new BsonString("UPDATE"))
-                .append("message", new BsonDocument("data", AFTER_DOC));
+        BsonDocument valueDoc = new BsonDocument("message", new BsonDocument("data", AFTER_DOC).append("headers", HEADER_DOC).append("beforeData",BEFORE_DOC));
 
         WriteModel<BsonDocument> result = RDBMS_UPDATE.perform(new SinkDocument(keyDoc, valueDoc));
         assertTrue(result instanceof UpdateOneModel, "result expected to be of type UpdateOneModel");
