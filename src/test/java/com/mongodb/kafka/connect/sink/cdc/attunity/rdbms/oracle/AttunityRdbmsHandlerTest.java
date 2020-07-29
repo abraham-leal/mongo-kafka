@@ -155,6 +155,49 @@ class AttunityRdbmsHandlerTest {
     }
 
     @TestFactory
+    @DisplayName("when valid CDC event then correct WriteModel")
+    Stream<DynamicTest> testValidAvroCdcDocument() {
+
+        return Stream.of(
+                dynamicTest("test operation " + OperationType.CREATE, () -> {
+                    Optional<WriteModel<BsonDocument>> result =
+                            RDBMS_HANDLER_DEFAULT_MAPPING.handle(new SinkDocument(
+                                    BsonDocument.parse("{id: 1234}"), BsonDocument.parse("{data: {id: 1234, foo: 'bar'}, headers: { operation: 'INSERT'}}")));
+                    assertTrue(result.isPresent());
+                    assertTrue(result.get() instanceof ReplaceOneModel, "result expected to be of type ReplaceOneModel");
+
+                }),
+                dynamicTest("test operation " + OperationType.READ, () -> {
+                    Optional<WriteModel<BsonDocument>> result =
+                            RDBMS_HANDLER_DEFAULT_MAPPING.handle(new SinkDocument(
+                                    BsonDocument.parse("{id: 1234}"), BsonDocument.parse("{ data: {id: 1234, foo: 'bar'}, headers: { operation: 'READ'}}"))
+                            );
+                    assertTrue(result.isPresent());
+                    assertTrue(result.get() instanceof ReplaceOneModel, "result expected to be of type ReplaceOneModel");
+
+                }),
+                dynamicTest("test operation " + OperationType.UPDATE, () -> {
+                    Optional<WriteModel<BsonDocument>> result =
+                            RDBMS_HANDLER_DEFAULT_MAPPING.handle(new SinkDocument(
+                                    BsonDocument.parse("{id: 1234}"), BsonDocument.parse("{data: {id: 1234, foo: 'bar'}, beforeData: {id: 4321, foo: 'foo'}, headers: { operation: 'UPDATE'}}"))
+                            );
+                    assertTrue(result.isPresent());
+                    assertTrue(result.get() instanceof UpdateOneModel, "result expected to be of type ReplaceOneModel");
+
+                }),
+                dynamicTest("test operation " + OperationType.DELETE, () -> {
+                    Optional<WriteModel<BsonDocument>> result =
+                            RDBMS_HANDLER_DEFAULT_MAPPING.handle(new SinkDocument(
+                                    BsonDocument.parse("{id: 1234}"), BsonDocument.parse("{data: {id: 1234, foo: 'bar'}, headers: { operation: 'DELETE'}}"))
+                            );
+                    assertTrue(result.isPresent(), "write model result must be present");
+                    assertTrue(result.get() instanceof DeleteOneModel, "result expected to be of type DeleteOneModel");
+                })
+        );
+
+    }
+
+    @TestFactory
     @DisplayName("when valid cdc operation type then correct RDBMS CdcOperation")
     Stream<DynamicTest> testValidCdcOpertionTypes() {
         return Stream.of(
@@ -169,6 +212,25 @@ class AttunityRdbmsHandlerTest {
                 ),
                 dynamicTest("test operation " + OperationType.DELETE, () ->
                         assertTrue(RDBMS_HANDLER_DEFAULT_MAPPING.getCdcOperation(BsonDocument.parse("{message: { headers: { operation: 'DELETE'} } }")) instanceof AttunityRdbmsDelete)
+                )
+        );
+    }
+
+    @TestFactory
+    @DisplayName("when valid cdc operation type then correct RDBMS CdcOperation")
+    Stream<DynamicTest> testValidAvroCdcOpertionTypes() {
+        return Stream.of(
+                dynamicTest("test operation " + OperationType.CREATE, () ->
+                        assertTrue(RDBMS_HANDLER_DEFAULT_MAPPING.getCdcOperation(BsonDocument.parse("{ headers: { operation: 'INSERT'} }")) instanceof AttunityRdbmsInsert)
+                ),
+                dynamicTest("test operation " + OperationType.READ, () ->
+                        assertTrue(RDBMS_HANDLER_DEFAULT_MAPPING.getCdcOperation(BsonDocument.parse("{ headers: { operation: 'READ'} }")) instanceof AttunityRdbmsInsert)
+                ),
+                dynamicTest("test operation " + OperationType.UPDATE, () ->
+                        assertTrue(RDBMS_HANDLER_DEFAULT_MAPPING.getCdcOperation(BsonDocument.parse("{ headers: { operation: 'UPDATE'} }")) instanceof AttunityRdbmsUpdate)
+                ),
+                dynamicTest("test operation " + OperationType.DELETE, () ->
+                        assertTrue(RDBMS_HANDLER_DEFAULT_MAPPING.getCdcOperation(BsonDocument.parse("{ headers: { operation: 'DELETE'} }")) instanceof AttunityRdbmsDelete)
                 )
         );
     }
