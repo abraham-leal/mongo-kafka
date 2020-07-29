@@ -28,6 +28,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.platform.runner.JUnitPlatform;
 import org.junit.runner.RunWith;
 
+import java.util.Optional;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 @RunWith(JUnitPlatform.class)
@@ -65,27 +67,37 @@ class AttunityRdbmsUpdateTest {
     @Test
     @DisplayName("when missing key doc then DataException")
     void testMissingKeyDocument() {
-        assertThrows(DataException.class, () -> RDBMS_UPDATE.perform(new SinkDocument(null, BsonDocument.parse("{header: {}}"))));
+        assertThrows(DataException.class, () -> RDBMS_UPDATE
+                .perform(new SinkDocument(null,
+                        BsonDocument.parse("{message: { data: {}, beforeData: {}, headers: {}}}"))));
     }
 
     @Test
     @DisplayName("when 'update' field missing in value doc then DataException")
     void testMissingPatchFieldInValueDocument() {
         assertThrows(DataException.class, () ->
-                RDBMS_UPDATE.perform(new SinkDocument(BsonDocument.parse("{id: 1234}"), BsonDocument.parse("{headers: {}}"))));
-    }
-
-    @Test
-    @DisplayName("when 'id' field not of type String in key doc then DataException")
-    void testIdFieldNoStringInKeyDocument() {
-        assertThrows(DataException.class, () ->
-                RDBMS_UPDATE.perform(new SinkDocument(BsonDocument.parse("{id: 1234}"), BsonDocument.parse("{headers: {}}"))));
+                RDBMS_UPDATE.perform(new SinkDocument(
+                        BsonDocument.parse("{id: 1234}"),
+                        BsonDocument.parse("{message: { data: {}, beforeData: {}, headers: {operation: ''}}}"))));
     }
 
     @Test
     @DisplayName("when 'id' field invalid JSON in key doc then DataException")
     void testIdFieldInvalidJsonInKeyDocument() {
         assertThrows(DataException.class, () ->
-                RDBMS_UPDATE.perform(new SinkDocument(BsonDocument.parse("{id: '{not-Json}'}"), BsonDocument.parse("{headers: {}}"))));
+                RDBMS_UPDATE.perform(new SinkDocument(
+                        BsonDocument.parse("{id: '{not-Json}'}"),
+                        BsonDocument.parse("{message: { data: {}, beforeData: {}, headers: {}}}"))));
+    }
+
+    @Test
+    @DisplayName("when no updates then empty")
+    void testNoUpdateOP() {
+        WriteModel<BsonDocument> wm = RDBMS_UPDATE
+                .perform(new SinkDocument(
+                        BsonDocument.parse("{id: '123'}"),
+                        BsonDocument.parse("{ message: {data: {foo: 'bar'}, beforeData: {foo: 'bar'}, headers: {operation: 'UPDATE'} } }")));
+        UpdateOneModel<BsonDocument> uom = (UpdateOneModel<BsonDocument>)wm;
+        System.out.println(uom.getFilter() + " " + uom.getUpdate());
     }
 }
