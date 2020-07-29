@@ -92,7 +92,7 @@ class AttunityRdbmsDeleteTest {
     }
 
     @Test
-    @DisplayName("when key doc and value 'before' field both empty then DataException")
+    @DisplayName("when value doc 'before' field both empty then DataException")
     void testEmptyKeyDocAndEmptyValueBeforeField() {
         assertThrows(DataException.class, () -> RDBMS_DELETE.perform(
                 new SinkDocument(new BsonDocument(), BsonDocument.parse("{message: { headers: { operation : 'INSERT' } , beforeData: { }}}")))

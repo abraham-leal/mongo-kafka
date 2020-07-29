@@ -82,21 +82,23 @@ public class MongoSinkTask extends SinkTask {
     @Override
     public void start(final Map<String, String> props) {
         LOGGER.info("Starting DLQ Producer for bad records");
-        if(props.get("errors.tolerance").equalsIgnoreCase("all")
-                && props.get("customdlq.enabled").equalsIgnoreCase("true")){
-            try {
-                Map<String,Object> producerProps = new HashMap<>();
-                producerProps.put("sasl.mechanism",(props.get("customdlq.sasl.mechanism")==null ? "GSSAPI" : props.get("customdlq.sasl.mechanism")));
-                producerProps.put("security.protocol",(props.get("customdlq.security.protocol")==null ? "PLAINTEXT" : props.get("customdlq.security.protocol")));
-                producerProps.put("sasl.jaas.config",props.get("customdlq.sasl.jaas.config"));
-                producerProps.put("bootstrap.servers",props.get("customdlq.bootstrap.servers"));
-                producerProps.put("client.id", props.get("name") + "-dlqProducer-" + UUID.randomUUID().toString());
-                producerProps.put("key.serializer", StringSerializer.class);
-                producerProps.put("value.serializer",StringSerializer.class);
-                dlqProducer = new KafkaProducer<String, String>(producerProps);
-            }catch(Exception e){
-                LOGGER.info("The DLQ Producer failed to be created. Connector will continue but will " +
-                        "not send any records to the DLQ");
+        if (props.get("errors.tolerance") != null && props.get("customdlq.enabled") != null){
+            if(props.get("errors.tolerance").equalsIgnoreCase("all")
+                    && props.get("customdlq.enabled").equalsIgnoreCase("true")){
+                try {
+                    Map<String,Object> producerProps = new HashMap<>();
+                    producerProps.put("sasl.mechanism",(props.get("customdlq.sasl.mechanism")==null ? "GSSAPI" : props.get("customdlq.sasl.mechanism")));
+                    producerProps.put("security.protocol",(props.get("customdlq.security.protocol")==null ? "PLAINTEXT" : props.get("customdlq.security.protocol")));
+                    producerProps.put("sasl.jaas.config",props.get("customdlq.sasl.jaas.config"));
+                    producerProps.put("bootstrap.servers",props.get("customdlq.bootstrap.servers"));
+                    producerProps.put("client.id", props.get("name") + "-dlqProducer-" + UUID.randomUUID().toString());
+                    producerProps.put("key.serializer", StringSerializer.class);
+                    producerProps.put("value.serializer",StringSerializer.class);
+                    dlqProducer = new KafkaProducer<String, String>(producerProps);
+                }catch(Exception e){
+                    LOGGER.info("The DLQ Producer failed to be created. Connector will continue but will " +
+                            "not send any records to the DLQ");
+                }
             }
         }
 
