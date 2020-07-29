@@ -111,6 +111,16 @@ class AttunityRdbmsHandlerTest {
         assertThrows(DataException.class, () -> RDBMS_HANDLER_DEFAULT_MAPPING.handle(cdcEvent));
     }
 
+    @Test
+    @DisplayName("when no updates then empty")
+    void testNoUpdateOP() {
+        assertEquals(Optional.empty(),
+                RDBMS_HANDLER_DEFAULT_MAPPING.handle(new SinkDocument(
+                        BsonDocument.parse("{id: 1234}"), BsonDocument.parse("{message : { data: {id: 1234, foo: 'bar'}, beforeData: {id: 1234, foo: 'bar'}, headers: { operation: 'UPDATE'}}}"))
+                ), "No-op update must result in Optional.empty()"
+        );
+    }
+
     @TestFactory
     @DisplayName("when valid CDC event then correct WriteModel")
     Stream<DynamicTest> testValidCdcDocument() {
@@ -155,7 +165,7 @@ class AttunityRdbmsHandlerTest {
     }
 
     @TestFactory
-    @DisplayName("when valid CDC event then correct WriteModel")
+    @DisplayName("when valid CDC event then correct WriteModel with Avro")
     Stream<DynamicTest> testValidAvroCdcDocument() {
 
         return Stream.of(
@@ -217,7 +227,7 @@ class AttunityRdbmsHandlerTest {
     }
 
     @TestFactory
-    @DisplayName("when valid cdc operation type then correct RDBMS CdcOperation")
+    @DisplayName("when valid cdc operation type then correct RDBMS CdcOperation with Avro")
     Stream<DynamicTest> testValidAvroCdcOpertionTypes() {
         return Stream.of(
                 dynamicTest("test operation " + OperationType.CREATE, () ->

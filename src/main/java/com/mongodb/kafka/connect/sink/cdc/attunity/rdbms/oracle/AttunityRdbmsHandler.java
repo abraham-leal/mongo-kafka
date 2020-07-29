@@ -73,7 +73,7 @@ public class AttunityRdbmsHandler extends AttunityCdcHandler {
             return Optional.empty();
         }
 
-        return Optional.of(getCdcOperation(valueDoc)
+        return Optional.ofNullable(getCdcOperation(valueDoc)
                 .perform(new SinkDocument(keyDoc, valueDoc)));
     }
 
@@ -90,7 +90,7 @@ public class AttunityRdbmsHandler extends AttunityCdcHandler {
         }
 
         try {
-            return Optional.of(getCdcOperation(valueDoc)
+            return Optional.ofNullable(getCdcOperation(valueDoc)
                     .perform(new SinkDocument(keyDoc, valueDoc)));
         }
         catch ( Exception e ){

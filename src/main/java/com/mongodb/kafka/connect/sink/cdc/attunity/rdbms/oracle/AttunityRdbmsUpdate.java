@@ -45,6 +45,9 @@ public class AttunityRdbmsUpdate implements CdcOperation {
                     () -> new DataException("Error: key doc must not be missing for update operation"));
             BsonDocument filterDoc = AttunityRdbmsHandler.generateFilterDoc(keyDoc, valueDoc, OperationType.UPDATE);
             BsonDocument updateDoc = AttunityRdbmsHandler.generateUpdateDoc(keyDoc,valueDoc,filterDoc);
+            if (updateDoc.getDocument("$set").keySet().isEmpty()){
+                return null;
+            }
             return new UpdateOneModel<>(filterDoc, updateDoc, UPDATE_OPTIONS);
         } catch (Exception exc) {
             throw new DataException(exc);
