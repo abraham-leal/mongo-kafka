@@ -91,13 +91,16 @@ class AttunityRdbmsUpdateTest {
     }
 
     @Test
-    @DisplayName("when no updates then empty")
-    void testNoUpdateOP() {
-        WriteModel<BsonDocument> wm = RDBMS_UPDATE
-                .perform(new SinkDocument(
-                        BsonDocument.parse("{id: '123'}"),
-                        BsonDocument.parse("{ message: {data: {foo: 'bar'}, beforeData: {foo: 'bar'}, headers: {operation: 'UPDATE'} } }")));
-        UpdateOneModel<BsonDocument> uom = (UpdateOneModel<BsonDocument>)wm;
-        System.out.println(uom.getFilter() + " " + uom.getUpdate());
+    @DisplayName("test Optional.empty() when no-op update is received")
+    void testForNoOpBehavior() {
+        BsonDocument keyDoc = BsonDocument.parse("{table: 1234, key: 43214}");
+        BsonDocument valueDoc = new BsonDocument("message",
+                new BsonDocument("data", BsonDocument.parse("{first_name: 'Grace', last_name: 'Hopper'}"))
+                        .append("headers", BsonDocument.parse("{operation: 'UPDATE'}")).append("beforeData",
+                        BsonDocument.parse("{first_name: 'Grace', last_name: 'Hopper'}")));
+
+        WriteModel<BsonDocument> result = RDBMS_UPDATE.perform(new SinkDocument(keyDoc, valueDoc));
+        assertNull(result, "result expected to be null");
     }
+
 }
