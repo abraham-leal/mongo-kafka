@@ -34,15 +34,15 @@ import org.bson.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 public class AttunityRdbmsHandler extends AttunityCdcHandler {
     static final String ID_FIELD = "_id";
     private static final String JSON_DOC_BEFORE_FIELD = "beforeData";
     private static final String JSON_DOC_AFTER_FIELD = "data";
     private static final String JSON_DOC_WRAPPER_FIELD = "message";
+    private static boolean KEY_EXTRACTION_ENABLED = false;
+    private static List<String> fieldsToExtract = new ArrayList<>();
     private static final Logger LOGGER = LoggerFactory.getLogger(AttunityRdbmsHandler.class);
     private static final Map<OperationType, CdcOperation> DEFAULT_OPERATIONS = new HashMap<OperationType, CdcOperation>(){{
         put(OperationType.CREATE, new AttunityRdbmsInsert());
@@ -53,20 +53,44 @@ public class AttunityRdbmsHandler extends AttunityCdcHandler {
 
     public AttunityRdbmsHandler(final MongoSinkTopicConfig config) {
         this(config, DEFAULT_OPERATIONS);
+        KEY_EXTRACTION_ENABLED = getConfig().originals().get("key.extraction.enabled") != null
+                && getConfig().originalsStrings().get("key.extraction.enabled").equals("true");
+        fieldsToExtract = Arrays.asList(getConfig()
+                .getString(MongoSinkTopicConfig.KEY_PROJECTION_LIST_CONFIG)
+                .split("\\s*,\\s*"));
     }
 
     public AttunityRdbmsHandler(final MongoSinkTopicConfig config,
                                 final Map<OperationType, CdcOperation> operations) {
         super(config);
         registerOperations(operations);
+        KEY_EXTRACTION_ENABLED = getConfig().originals().get("key.extraction.enabled") != null
+                && getConfig().originalsStrings().get("key.extraction.enabled").equals("true");
+        fieldsToExtract = Arrays.asList(getConfig()
+                .getString(MongoSinkTopicConfig.KEY_PROJECTION_LIST_CONFIG)
+                .split("\\s*,\\s*"));
     }
 
     @Override
     public Optional<WriteModel<BsonDocument>> handle(final SinkDocument doc) {
-
-        BsonDocument keyDoc = doc.getKeyDoc().orElseGet(BsonDocument::new);
+        BsonDocument keyDoc = new BsonDocument();
 
         BsonDocument valueDoc = doc.getValueDoc().orElseGet(BsonDocument::new);
+
+        if (KEY_EXTRACTION_ENABLED){
+            if ( valueDoc.containsKey(JSON_DOC_WRAPPER_FIELD) ){
+                for (String field : fieldsToExtract){
+                    keyDoc.put(field,valueDoc.getDocument(JSON_DOC_WRAPPER_FIELD).getDocument(JSON_DOC_AFTER_FIELD).get(field));
+                }
+            } else {
+                for (String field : fieldsToExtract){
+                    keyDoc.put(field,valueDoc.getDocument(JSON_DOC_AFTER_FIELD).get(field));
+                }
+            }
+        }
+        else {
+            keyDoc = doc.getKeyDoc().orElseGet(BsonDocument::new);
+        }
 
         if (valueDoc.isEmpty()) {
             LOGGER.debug("skipping attunity tombstone event for kafka topic compaction");
