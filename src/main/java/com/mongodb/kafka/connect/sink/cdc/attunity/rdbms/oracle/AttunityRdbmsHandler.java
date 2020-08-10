@@ -53,22 +53,20 @@ public class AttunityRdbmsHandler extends AttunityCdcHandler {
 
     public AttunityRdbmsHandler(final MongoSinkTopicConfig config) {
         this(config, DEFAULT_OPERATIONS);
-        KEY_EXTRACTION_ENABLED = getConfig().originals().get("key.extraction.enabled") != null
-                && getConfig().originalsStrings().get("key.extraction.enabled").equalsIgnoreCase("true");
-        fieldsToExtract = Arrays.asList(getConfig()
-                .getString(MongoSinkTopicConfig.KEY_PROJECTION_LIST_CONFIG)
-                .split("\\s*,\\s*"));
     }
 
     public AttunityRdbmsHandler(final MongoSinkTopicConfig config,
                                 final Map<OperationType, CdcOperation> operations) {
         super(config);
-        registerOperations(operations);
         KEY_EXTRACTION_ENABLED = getConfig().originals().get("key.extraction.enabled") != null
                 && getConfig().originalsStrings().get("key.extraction.enabled").equalsIgnoreCase("true");
-        fieldsToExtract = Arrays.asList(getConfig()
-                .getString(MongoSinkTopicConfig.KEY_PROJECTION_LIST_CONFIG)
-                .split("\\s*,\\s*"));
+        if (KEY_EXTRACTION_ENABLED){
+            LOGGER.info("Key extraction from value is enabled!");
+            fieldsToExtract = Arrays.asList(getConfig()
+                    .getString(MongoSinkTopicConfig.KEY_PROJECTION_LIST_CONFIG)
+                    .split("\\s*,\\s*"));
+        }
+        registerOperations(operations);
     }
 
     @Override
@@ -76,6 +74,11 @@ public class AttunityRdbmsHandler extends AttunityCdcHandler {
         BsonDocument keyDoc = new BsonDocument();
 
         BsonDocument valueDoc = doc.getValueDoc().orElseGet(BsonDocument::new);
+
+        if (valueDoc.isEmpty()) {
+            LOGGER.debug("skipping attunity tombstone event for kafka topic compaction");
+            return Optional.empty();
+        }
 
         if (KEY_EXTRACTION_ENABLED){
             if ( valueDoc.containsKey(JSON_DOC_WRAPPER_FIELD) ){
@@ -90,11 +93,6 @@ public class AttunityRdbmsHandler extends AttunityCdcHandler {
         }
         else {
             keyDoc = doc.getKeyDoc().orElseGet(BsonDocument::new);
-        }
-
-        if (valueDoc.isEmpty()) {
-            LOGGER.debug("skipping attunity tombstone event for kafka topic compaction");
-            return Optional.empty();
         }
 
         return Optional.ofNullable(getCdcOperation(valueDoc)
@@ -108,27 +106,27 @@ public class AttunityRdbmsHandler extends AttunityCdcHandler {
 
         BsonDocument valueDoc = doc.getValueDoc().orElseGet(BsonDocument::new);
 
-        if (KEY_EXTRACTION_ENABLED){
-            if ( valueDoc.containsKey(JSON_DOC_WRAPPER_FIELD) ){
-                for (String field : fieldsToExtract){
-                    keyDoc.put(field,valueDoc.getDocument(JSON_DOC_WRAPPER_FIELD).getDocument(JSON_DOC_AFTER_FIELD).get(field));
-                }
-            } else {
-                for (String field : fieldsToExtract){
-                    keyDoc.put(field,valueDoc.getDocument(JSON_DOC_AFTER_FIELD).get(field));
-                }
-            }
-        }
-        else {
-            keyDoc = doc.getKeyDoc().orElseGet(BsonDocument::new);
-        }
-
         if (valueDoc.isEmpty()) {
             LOGGER.debug("skipping attunity tombstone event for kafka topic compaction");
             return Optional.empty();
         }
 
         try {
+            if (KEY_EXTRACTION_ENABLED){
+                if ( valueDoc.containsKey(JSON_DOC_WRAPPER_FIELD) ){
+                    for (String field : fieldsToExtract){
+                        keyDoc.put(field,valueDoc.getDocument(JSON_DOC_WRAPPER_FIELD).getDocument(JSON_DOC_AFTER_FIELD).get(field));
+                    }
+                } else {
+                    for (String field : fieldsToExtract){
+                        keyDoc.put(field,valueDoc.getDocument(JSON_DOC_AFTER_FIELD).get(field));
+                    }
+                }
+            }
+            else {
+                keyDoc = doc.getKeyDoc().orElseGet(BsonDocument::new);
+            }
+
             return Optional.ofNullable(getCdcOperation(valueDoc)
                     .perform(new SinkDocument(keyDoc, valueDoc)));
         }

@@ -210,7 +210,7 @@ class AttunityRdbmsHandlerTest {
     @TestFactory
     @DisplayName("when key extraction enabled then correct keyDoc")
     Stream<DynamicTest> testValidKeyExtraction() {
-        String customConfig = "{\"key.extraction.enabled\" : \"true\", \"key.projection.list\" : \"foo\",}";
+        String customConfig = "{\"key.extraction.enabled\" : \"true\", \"key.projection.list\" : \"foo\"}";
         String expectedKey = "{\"foo\": \"bar\"}";
         AttunityRdbmsHandler customMapping = new AttunityRdbmsHandler(createTopicConfig(customConfig));
 
