@@ -54,7 +54,7 @@ public class AttunityRdbmsHandler extends AttunityCdcHandler {
     public AttunityRdbmsHandler(final MongoSinkTopicConfig config) {
         this(config, DEFAULT_OPERATIONS);
         KEY_EXTRACTION_ENABLED = getConfig().originals().get("key.extraction.enabled") != null
-                && getConfig().originalsStrings().get("key.extraction.enabled").equals("true");
+                && getConfig().originalsStrings().get("key.extraction.enabled").equalsIgnoreCase("true");
         fieldsToExtract = Arrays.asList(getConfig()
                 .getString(MongoSinkTopicConfig.KEY_PROJECTION_LIST_CONFIG)
                 .split("\\s*,\\s*"));
@@ -65,7 +65,7 @@ public class AttunityRdbmsHandler extends AttunityCdcHandler {
         super(config);
         registerOperations(operations);
         KEY_EXTRACTION_ENABLED = getConfig().originals().get("key.extraction.enabled") != null
-                && getConfig().originalsStrings().get("key.extraction.enabled").equals("true");
+                && getConfig().originalsStrings().get("key.extraction.enabled").equalsIgnoreCase("true");
         fieldsToExtract = Arrays.asList(getConfig()
                 .getString(MongoSinkTopicConfig.KEY_PROJECTION_LIST_CONFIG)
                 .split("\\s*,\\s*"));
@@ -104,9 +104,24 @@ public class AttunityRdbmsHandler extends AttunityCdcHandler {
     @Override
     public Optional<WriteModel<BsonDocument>> handle(final SinkDocument doc, KafkaProducer<String, String> dlqProducer) {
 
-        BsonDocument keyDoc = doc.getKeyDoc().orElseGet(BsonDocument::new);
+        BsonDocument keyDoc = new BsonDocument();
 
         BsonDocument valueDoc = doc.getValueDoc().orElseGet(BsonDocument::new);
+
+        if (KEY_EXTRACTION_ENABLED){
+            if ( valueDoc.containsKey(JSON_DOC_WRAPPER_FIELD) ){
+                for (String field : fieldsToExtract){
+                    keyDoc.put(field,valueDoc.getDocument(JSON_DOC_WRAPPER_FIELD).getDocument(JSON_DOC_AFTER_FIELD).get(field));
+                }
+            } else {
+                for (String field : fieldsToExtract){
+                    keyDoc.put(field,valueDoc.getDocument(JSON_DOC_AFTER_FIELD).get(field));
+                }
+            }
+        }
+        else {
+            keyDoc = doc.getKeyDoc().orElseGet(BsonDocument::new);
+        }
 
         if (valueDoc.isEmpty()) {
             LOGGER.debug("skipping attunity tombstone event for kafka topic compaction");
