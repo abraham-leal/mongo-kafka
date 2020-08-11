@@ -208,6 +208,58 @@ class AttunityRdbmsHandlerTest {
     }
 
     @TestFactory
+    @DisplayName("when key extraction enabled then correct keyDoc")
+    Stream<DynamicTest> testValidKeyExtraction() {
+        String customConfig = "{\"key.extraction.enabled\" : \"true\", \"key.projection.list\" : \"foo\"}";
+        String expectedKey = "{\"foo\": \"bar\"}";
+        AttunityRdbmsHandler customMapping = new AttunityRdbmsHandler(createTopicConfig(customConfig));
+
+        return Stream.of(
+                dynamicTest("test operation " + OperationType.CREATE, () -> {
+                    Optional<WriteModel<BsonDocument>> result =
+                            customMapping.handle(new SinkDocument(
+                                    BsonDocument.parse("{id: 1234}"), BsonDocument.parse("{message: { data: {peep: 1234, foo: 'bar'}, headers: { operation: 'INSERT'}}}")));
+                    assertTrue(result.isPresent());
+                    assertTrue(result.get() instanceof ReplaceOneModel, "result expected to be of type ReplaceOneModel");
+                    assertEquals(expectedKey, ((ReplaceOneModel<BsonDocument>) result.get()).getReplacement().get("_id").toString());
+
+                }),
+                dynamicTest("test operation " + OperationType.READ, () -> {
+                    Optional<WriteModel<BsonDocument>> result =
+                            customMapping.handle(new SinkDocument(
+                                    BsonDocument.parse("{id: 1234}"), BsonDocument.parse("{message : { data: {peep: 1234, foo: 'bar'}, headers: { operation: 'READ'}}}"))
+                            );
+                    assertTrue(result.isPresent());
+                    assertTrue(result.get() instanceof ReplaceOneModel, "result expected to be of type ReplaceOneModel");
+                    System.out.println(((ReplaceOneModel<BsonDocument>) result.get()).getFilter().toString());
+                    assertEquals(expectedKey, ((ReplaceOneModel<BsonDocument>) result.get()).getReplacement().get("_id").toString());
+
+                }),
+                dynamicTest("test operation " + OperationType.UPDATE, () -> {
+                    Optional<WriteModel<BsonDocument>> result =
+                            customMapping.handle(new SinkDocument(
+                                    BsonDocument.parse("{id: 1234}"), BsonDocument.parse("{message : { data: {peep: 1234, foo: 'bar'}, beforeData: {id: 4321, foo: 'foo'}, headers: { operation: 'UPDATE'}}}"))
+                            );
+                    assertTrue(result.isPresent());
+                    assertTrue(result.get() instanceof UpdateOneModel, "result expected to be of type UpdateOneModel");
+                    System.out.println(((UpdateOneModel<BsonDocument>) result.get()).getFilter().toString());
+                    assertEquals(new BsonDocument().append("_id",BsonDocument.parse(expectedKey)), (((UpdateOneModel<BsonDocument>) result.get()).getFilter()));
+
+                }),
+                dynamicTest("test operation " + OperationType.DELETE, () -> {
+                    Optional<WriteModel<BsonDocument>> result =
+                            customMapping.handle(new SinkDocument(
+                                    BsonDocument.parse("{id: 1234}"), BsonDocument.parse("{message : { data: {peep: 1234, foo: 'bar'}, headers: { operation: 'DELETE'}}}"))
+                            );
+                    assertTrue(result.isPresent(), "write model result must be present");
+                    assertTrue(result.get() instanceof DeleteOneModel, "result expected to be of type DeleteOneModel");
+                    System.out.println(((DeleteOneModel<BsonDocument>) result.get()).getFilter().toString());
+                    assertEquals(new BsonDocument().append("_id",BsonDocument.parse(expectedKey)), (((DeleteOneModel<BsonDocument>) result.get()).getFilter()));
+                })
+        );
+    }
+
+    @TestFactory
     @DisplayName("when valid cdc operation type then correct RDBMS CdcOperation")
     Stream<DynamicTest> testValidCdcOpertionTypes() {
         return Stream.of(
