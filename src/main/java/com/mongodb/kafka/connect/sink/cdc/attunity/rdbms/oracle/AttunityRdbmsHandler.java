@@ -41,8 +41,8 @@ public class AttunityRdbmsHandler extends AttunityCdcHandler {
     private static final String JSON_DOC_BEFORE_FIELD = "beforeData";
     private static final String JSON_DOC_AFTER_FIELD = "data";
     private static final String JSON_DOC_WRAPPER_FIELD = "message";
-    private static boolean KEY_EXTRACTION_ENABLED = false;
-    private static List<String> fieldsToExtract = new ArrayList<>();
+    private boolean KEY_EXTRACTION_ENABLED = false;
+    private List<String> fieldsToExtract = new ArrayList<>();
     private static final Logger LOGGER = LoggerFactory.getLogger(AttunityRdbmsHandler.class);
     private static final Map<OperationType, CdcOperation> DEFAULT_OPERATIONS = new HashMap<OperationType, CdcOperation>(){{
         put(OperationType.CREATE, new AttunityRdbmsInsert());
