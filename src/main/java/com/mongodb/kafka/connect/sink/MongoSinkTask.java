@@ -68,12 +68,12 @@ public class MongoSinkTask extends SinkTask {
     private MongoClient mongoClient;
     private Map<String, AtomicInteger> remainingRetriesTopicMap;
 
-    private SinkConverter sinkConverter = new SinkConverter();
+  private SinkConverter sinkConverter = new SinkConverter();
 
-    @Override
-    public String version() {
-        return Versions.VERSION;
-    }
+  @Override
+  public String version() {
+    return Versions.VERSION;
+  }
 
     /**
      * Start the Task. This should handle any configuration parsing and one-time setup of the task.
@@ -113,56 +113,66 @@ public class MongoSinkTask extends SinkTask {
         }
         LOGGER.debug("Started MongoDB sink task");
     }
+    LOGGER.debug("Started MongoDB sink task");
+  }
 
-    /**
-     * Put the records in the sink. Usually this should send the records to the sink asynchronously
-     * and immediately return.
-     *
-     * If this operation fails, the SinkTask may throw a {@link org.apache.kafka.connect.errors.RetriableException} to
-     * indicate that the framework should attempt to retry the same call again. Other exceptions will cause the task to
-     * be stopped immediately. {@link SinkTaskContext#timeout(long)} can be used to set the maximum time before the
-     * batch will be retried.
-     *
-     * @param records the set of records to send
-     */
-    @Override
-    public void put(final Collection<SinkRecord> records) {
-        if (records.isEmpty()) {
-            LOGGER.debug("No sink records to process for current poll operation");
-            return;
-        }
-        Map<String, RecordBatches> batchMapping = createSinkRecordBatchesPerTopic(records);
-        batchMapping.forEach((topic, batches) -> {
-            MongoSinkTopicConfig topicConfig = sinkConfig.getMongoSinkTopicConfig(topic);
-            batches.getBufferedBatches().forEach(batch -> {
-                        processSinkRecords(topicConfig, batch);
-                        RateLimitSettings rls = topicConfig.getRateLimitSettings();
-                        if (rls.isTriggered()) {
-                            LOGGER.debug("Rate limit settings triggering {}ms defer timeout after processing {}"
-                                       + " further batches for topic {}", rls.getTimeoutMs(), rls.getEveryN(), topic);
-                            try {
-                                Thread.sleep(rls.getTimeoutMs());
-                            } catch (InterruptedException e) {
-                                LOGGER.error(e.getMessage());
-                            }
-                        }
+  /**
+   * Put the records in the sink. Usually this should send the records to the sink asynchronously
+   * and immediately return.
+   *
+   * <p>If this operation fails, the SinkTask may throw a {@link
+   * org.apache.kafka.connect.errors.RetriableException} to indicate that the framework should
+   * attempt to retry the same call again. Other exceptions will cause the task to be stopped
+   * immediately. {@link SinkTaskContext#timeout(long)} can be used to set the maximum time before
+   * the batch will be retried.
+   *
+   * @param records the set of records to send
+   */
+  @Override
+  public void put(final Collection<SinkRecord> records) {
+    if (records.isEmpty()) {
+      LOGGER.debug("No sink records to process for current poll operation");
+      return;
+    }
+    Map<String, RecordBatches> batchMapping = createSinkRecordBatchesPerTopic(records);
+    batchMapping.forEach(
+        (topic, batches) -> {
+          MongoSinkTopicConfig topicConfig = sinkConfig.getMongoSinkTopicConfig(topic);
+          batches
+              .getBufferedBatches()
+              .forEach(
+                  batch -> {
+                    processSinkRecords(topicConfig, batch);
+                    RateLimitSettings rls = topicConfig.getRateLimitSettings();
+                    if (rls.isTriggered()) {
+                      LOGGER.debug(
+                          "Rate limit settings triggering {}ms defer timeout after processing {}"
+                              + " further batches for topic {}",
+                          rls.getTimeoutMs(),
+                          rls.getEveryN(),
+                          topic);
+                      try {
+                        Thread.sleep(rls.getTimeoutMs());
+                      } catch (InterruptedException e) {
+                        LOGGER.error(e.getMessage());
+                      }
                     }
-            );
+                  });
         });
-    }
+  }
 
-    /**
-     * Flush all records that have been {@link #put(Collection)} for the specified topic-partitions.
-     *
-     * @param currentOffsets the current offset state as of the last call to {@link #put(Collection)}},
-     *                       provided for convenience but could also be determined by tracking all offsets included in the
-     *                       {@link SinkRecord}s passed to {@link #put}.
-     */
-    @Override
-    public void flush(final Map<TopicPartition, OffsetAndMetadata> currentOffsets) {
-        //NOTE: flush is not used for now...
-        LOGGER.debug("Flush called - noop");
-    }
+  /**
+   * Flush all records that have been {@link #put(Collection)} for the specified topic-partitions.
+   *
+   * @param currentOffsets the current offset state as of the last call to {@link
+   *     #put(Collection)}}, provided for convenience but could also be determined by tracking all
+   *     offsets included in the {@link SinkRecord}s passed to {@link #put}.
+   */
+  @Override
+  public void flush(final Map<TopicPartition, OffsetAndMetadata> currentOffsets) {
+    // NOTE: flush is not used for now...
+    LOGGER.debug("Flush called - noop");
+  }
 
     /**
      * Perform any cleanup to stop this task. In SinkTasks, this method is invoked only once outstanding calls to other
@@ -181,101 +191,122 @@ public class MongoSinkTask extends SinkTask {
             dlqProducer.close();
         }
     }
+  }
 
-    private MongoClient getMongoClient() {
-        if (mongoClient == null) {
-            mongoClient = MongoClients.create(sinkConfig.getConnectionString(), getMongoDriverInformation(CONNECTOR_TYPE));
-        }
-        return mongoClient;
+  private MongoClient getMongoClient() {
+    if (mongoClient == null) {
+      mongoClient =
+          MongoClients.create(
+              sinkConfig.getConnectionString(), getMongoDriverInformation(CONNECTOR_TYPE));
     }
+    return mongoClient;
+  }
 
-    private void processSinkRecords(final MongoSinkTopicConfig config, final List<SinkRecord> batch) {
-        List<? extends WriteModel<BsonDocument>> writeModels = config.getCdcHandler().isPresent()
-                ? buildWriteModelCDC(config, batch) : buildWriteModel(config, batch);
-        try {
-            if (!writeModels.isEmpty()) {
-                LOGGER.debug("Bulk writing {} document(s) into collection [{}]", writeModels.size(),
-                        config.getNamespace().getFullName());
-                BulkWriteResult result = getMongoClient()
-                        .getDatabase(config.getNamespace().getDatabaseName())
-                        .getCollection(config.getNamespace().getCollectionName(), BsonDocument.class)
-                        .bulkWrite(writeModels, BULK_WRITE_OPTIONS);
-                LOGGER.debug("Mongodb bulk write result: {}", result);
-            }
-        } catch (MongoBulkWriteException e) {
-            LOGGER.error("Mongodb bulk write (partially) failed", e);
-            LOGGER.error("WriteResult: {}", e.getWriteResult());
-            LOGGER.error("WriteErrors: {}", e.getWriteErrors());
-            LOGGER.error("WriteConcernError: {}", e.getWriteConcernError());
-            checkRetriableException(config, e);
-        } catch (MongoException e) {
-            LOGGER.error("Error on mongodb operation", e);
-            LOGGER.error("Writing {} document(s) into collection [{}] failed -> remaining retries ({})",
-                    writeModels.size(), config.getNamespace().getFullName(), getRemainingRetriesForTopic(config.getTopic()).get());
-            checkRetriableException(config, e);
-        }
+  private void processSinkRecords(final MongoSinkTopicConfig config, final List<SinkRecord> batch) {
+    List<? extends WriteModel<BsonDocument>> writeModels =
+        config.getCdcHandler().isPresent()
+            ? buildWriteModelCDC(config, batch)
+            : buildWriteModel(config, batch);
+    try {
+      if (!writeModels.isEmpty()) {
+        LOGGER.debug(
+            "Bulk writing {} document(s) into collection [{}]",
+            writeModels.size(),
+            config.getNamespace().getFullName());
+        BulkWriteResult result =
+            getMongoClient()
+                .getDatabase(config.getNamespace().getDatabaseName())
+                .getCollection(config.getNamespace().getCollectionName(), BsonDocument.class)
+                .bulkWrite(writeModels, BULK_WRITE_OPTIONS);
+        LOGGER.debug("Mongodb bulk write result: {}", result);
+      }
+    } catch (MongoBulkWriteException e) {
+      LOGGER.error("Mongodb bulk write (partially) failed", e);
+      LOGGER.error("WriteResult: {}", e.getWriteResult());
+      LOGGER.error("WriteErrors: {}", e.getWriteErrors());
+      LOGGER.error("WriteConcernError: {}", e.getWriteConcernError());
+      checkRetriableException(config, e);
+    } catch (MongoException e) {
+      LOGGER.error("Error on mongodb operation", e);
+      LOGGER.error(
+          "Writing {} document(s) into collection [{}] failed -> remaining retries ({})",
+          writeModels.size(),
+          config.getNamespace().getFullName(),
+          getRemainingRetriesForTopic(config.getTopic()).get());
+      checkRetriableException(config, e);
     }
+  }
 
-    private AtomicInteger getRemainingRetriesForTopic(final String topic) {
-        if (!remainingRetriesTopicMap.containsKey(topic)) {
-            remainingRetriesTopicMap.put(topic, new AtomicInteger(sinkConfig.getMongoSinkTopicConfig(topic)
-                    .getInt(MAX_NUM_RETRIES_CONFIG)));
-        }
-        return remainingRetriesTopicMap.get(topic);
+  private AtomicInteger getRemainingRetriesForTopic(final String topic) {
+    if (!remainingRetriesTopicMap.containsKey(topic)) {
+      remainingRetriesTopicMap.put(
+          topic,
+          new AtomicInteger(
+              sinkConfig.getMongoSinkTopicConfig(topic).getInt(MAX_NUM_RETRIES_CONFIG)));
     }
+    return remainingRetriesTopicMap.get(topic);
+  }
 
-    private void checkRetriableException(final MongoSinkTopicConfig config, final MongoException e) {
-        if (getRemainingRetriesForTopic(config.getTopic()).decrementAndGet() <= 0) {
-            throw new DataException("Failed to write mongodb documents despite retrying", e);
-        }
-        Integer deferRetryMs = config.getInt(RETRIES_DEFER_TIMEOUT_CONFIG);
-        LOGGER.debug("Deferring retry operation for {}ms", deferRetryMs);
-        context.timeout(deferRetryMs);
-        throw new RetriableException(e.getMessage(), e);
+  private void checkRetriableException(final MongoSinkTopicConfig config, final MongoException e) {
+    if (getRemainingRetriesForTopic(config.getTopic()).decrementAndGet() <= 0) {
+      throw new DataException("Failed to write mongodb documents despite retrying", e);
     }
+    Integer deferRetryMs = config.getInt(RETRIES_DEFER_TIMEOUT_CONFIG);
+    LOGGER.debug("Deferring retry operation for {}ms", deferRetryMs);
+    context.timeout(deferRetryMs);
+    throw new RetriableException(e.getMessage(), e);
+  }
 
-    Map<String, RecordBatches> createSinkRecordBatchesPerTopic(final Collection<SinkRecord> records) {
-        LOGGER.debug("Number of sink records to process: {}", records.size());
+  Map<String, RecordBatches> createSinkRecordBatchesPerTopic(final Collection<SinkRecord> records) {
+    LOGGER.debug("Number of sink records to process: {}", records.size());
 
-        Map<String, RecordBatches> batchMapping = new HashMap<>();
-        LOGGER.debug("Buffering sink records into grouped topic batches");
-        records.forEach(r -> {
-            RecordBatches batches = batchMapping.get(r.topic());
-            if (batches == null) {
-                int maxBatchSize = sinkConfig.getMongoSinkTopicConfig(r.topic()).getInt(MAX_BATCH_SIZE_CONFIG);
-                LOGGER.debug("Batch size for collection {} is at most {} record(s)",
-                        sinkConfig.getMongoSinkTopicConfig(r.topic()).getNamespace().getCollectionName(), maxBatchSize);
-                batches = new RecordBatches(maxBatchSize, records.size());
-                batchMapping.put(r.topic(), batches);
-            }
-            batches.buffer(r);
+    Map<String, RecordBatches> batchMapping = new HashMap<>();
+    LOGGER.debug("Buffering sink records into grouped topic batches");
+    records.forEach(
+        r -> {
+          RecordBatches batches = batchMapping.get(r.topic());
+          if (batches == null) {
+            int maxBatchSize =
+                sinkConfig.getMongoSinkTopicConfig(r.topic()).getInt(MAX_BATCH_SIZE_CONFIG);
+            LOGGER.debug(
+                "Batch size for collection {} is at most {} record(s)",
+                sinkConfig.getMongoSinkTopicConfig(r.topic()).getNamespace().getCollectionName(),
+                maxBatchSize);
+            batches = new RecordBatches(maxBatchSize, records.size());
+            batchMapping.put(r.topic(), batches);
+          }
+          batches.buffer(r);
         });
-        return batchMapping;
-    }
+    return batchMapping;
+  }
 
-    List<? extends WriteModel<BsonDocument>> buildWriteModel(final MongoSinkTopicConfig config, final Collection<SinkRecord> records) {
-        List<WriteModel<BsonDocument>> docsToWrite = new ArrayList<>(records.size());
-        LOGGER.debug("building write model for {} record(s)", records.size());
+  List<? extends WriteModel<BsonDocument>> buildWriteModel(
+      final MongoSinkTopicConfig config, final Collection<SinkRecord> records) {
+    List<WriteModel<BsonDocument>> docsToWrite = new ArrayList<>(records.size());
+    LOGGER.debug("building write model for {} record(s)", records.size());
 
-        PostProcessors postProcessors = config.getPostProcessors();
-        records.forEach(record -> {
-                    SinkDocument doc = sinkConverter.convert(record);
-                    postProcessors.getPostProcessorList().forEach(pp -> pp.process(doc, record));
+    PostProcessors postProcessors = config.getPostProcessors();
+    records.forEach(
+        record -> {
+          SinkDocument doc = sinkConverter.convert(record);
+          postProcessors.getPostProcessorList().forEach(pp -> pp.process(doc, record));
 
-                    if (doc.getValueDoc().isPresent()) {
-                        docsToWrite.add(config.getWriteModelStrategy().createWriteModel(doc));
-                    } else {
-                        Optional<WriteModelStrategy> deleteOneModelWriteStrategy = config.getDeleteOneWriteModelStrategy();
-                        if (doc.getKeyDoc().isPresent() && deleteOneModelWriteStrategy.isPresent()) {
-                            docsToWrite.add(deleteOneModelWriteStrategy.get().createWriteModel(doc));
-                        } else {
-                            LOGGER.error("skipping sink record {} for which neither key doc nor value doc were present", record);
-                        }
-                    }
-                }
-        );
-        return docsToWrite;
-    }
+          if (doc.getValueDoc().isPresent()) {
+            docsToWrite.add(config.getWriteModelStrategy().createWriteModel(doc));
+          } else {
+            Optional<WriteModelStrategy> deleteOneModelWriteStrategy =
+                config.getDeleteOneWriteModelStrategy();
+            if (doc.getKeyDoc().isPresent() && deleteOneModelWriteStrategy.isPresent()) {
+              docsToWrite.add(deleteOneModelWriteStrategy.get().createWriteModel(doc));
+            } else {
+              LOGGER.error(
+                  "skipping sink record {} for which neither key doc nor value doc were present",
+                  record);
+            }
+          }
+        });
+    return docsToWrite;
+  }
 
     List<? extends WriteModel<BsonDocument>> buildWriteModelCDC(final MongoSinkTopicConfig config, final Collection<SinkRecord> records) {
         LOGGER.debug("Building CDC write model for {} record(s) for topic {}", records.size(), config.getTopic());

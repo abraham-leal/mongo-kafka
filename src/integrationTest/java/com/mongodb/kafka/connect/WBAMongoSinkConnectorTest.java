@@ -179,87 +179,108 @@ class WBAMongoSinkConnectorTest extends MongoKafkaTestCase {
                 TweetMsg.newBuilder().setId$1(i)
                         .setText(format("test tweet %s end2end testing apache kafka <-> mongodb sink connector is fun!", i))
                         .setHashtags(asList(format("t%s", i), "kafka", "mongodb", "testing"))
-                        .build()
-        ).collect(Collectors.toList());
+                        .build())
+            .collect(Collectors.toList());
 
-        Properties producerProps = new Properties();
-        producerProps.put(ProducerConfig.TRANSACTIONAL_ID_CONFIG, topicName);
-        producerProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, KAFKA.bootstrapServers());
-        producerProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, "io.confluent.kafka.serializers.KafkaAvroSerializer");
-        producerProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, "io.confluent.kafka.serializers.KafkaAvroSerializer");
-        producerProps.put(KafkaAvroSerializerConfig.SCHEMA_REGISTRY_URL_CONFIG, KAFKA.schemaRegistryUrl());
+    Properties producerProps = new Properties();
+    producerProps.put(ProducerConfig.TRANSACTIONAL_ID_CONFIG, topicName);
+    producerProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, KAFKA.bootstrapServers());
+    producerProps.put(
+        ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
+        "io.confluent.kafka.serializers.KafkaAvroSerializer");
+    producerProps.put(
+        ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
+        "io.confluent.kafka.serializers.KafkaAvroSerializer");
+    producerProps.put(
+        KafkaAvroSerializerConfig.SCHEMA_REGISTRY_URL_CONFIG, KAFKA.schemaRegistryUrl());
 
-        try (KafkaProducer<Long, TweetMsg> producer = new KafkaProducer<>(producerProps)) {
-            producer.initTransactions();
-            producer.beginTransaction();
-            tweets.stream().filter(t -> t.getId$1() < 50)
-                    .forEach(tweet ->
-                            producer.send(new ProducerRecord<>(topicName, RANDOM.nextInt(partitionCount), tweet.getId$1(),  tweet)));
-            producer.commitTransaction();
+    try (KafkaProducer<Long, TweetMsg> producer = new KafkaProducer<>(producerProps)) {
+      producer.initTransactions();
+      producer.beginTransaction();
+      tweets.stream()
+          .filter(t -> t.getId$1() < 50)
+          .forEach(
+              tweet ->
+                  producer.send(
+                      new ProducerRecord<>(
+                          topicName, RANDOM.nextInt(partitionCount), tweet.getId$1(), tweet)));
+      producer.commitTransaction();
 
-            assertProduced(50, topicName);
-            assertEventuallyEquals(50L, () -> getCollection(collectionName).countDocuments(), collectionName);
+      assertEventuallyEquals(
+          50L, () -> getCollection(collectionName).countDocuments(), collectionName);
 
-            if (restartConnector) {
-                restartSinkConnector(topicName);
-            }
+      if (restartConnector) {
+        restartSinkConnector();
+      }
 
-            producer.beginTransaction();
-            tweets.stream().filter(t -> t.getId$1() >= 50)
-                    .forEach(tweet ->
-                            producer.send(new ProducerRecord<>(topicName, RANDOM.nextInt(partitionCount), tweet.getId$1(),  tweet)));
-            producer.commitTransaction();
+      producer.beginTransaction();
+      tweets.stream()
+          .filter(t -> t.getId$1() >= 50)
+          .forEach(
+              tweet ->
+                  producer.send(
+                      new ProducerRecord<>(
+                          topicName, RANDOM.nextInt(partitionCount), tweet.getId$1(), tweet)));
+      producer.commitTransaction();
+      assertEventuallyEquals(
+          100L, () -> getCollection(collectionName).countDocuments(), collectionName);
+    }
+  }
 
-            assertProduced(100, topicName);
-            assertEventuallyEquals(100L, () -> getCollection(collectionName).countDocuments(), collectionName);
+  <T> void assertEventuallyEquals(final T expected, final Supplier<T> action, final String msg) {
+    assertEventuallyEquals(expected, action, msg, 5, 1000);
+  }
+
+  <T> void assertEventuallyEquals(
+      final T expected,
+      final Supplier<T> action,
+      final String msg,
+      final int retries,
+      final long timeoutMs) {
+    int counter = 0;
+    boolean hasError = true;
+    AssertionFailedError exception = null;
+    while (counter < retries && hasError) {
+      try {
+        counter++;
+        assertEquals(expected, action.get(), msg);
+        hasError = false;
+      } catch (AssertionFailedError e) {
+        LOGGER.debug("Failed assertion on attempt: {}", counter);
+        exception = e;
+        try {
+          Thread.sleep(timeoutMs);
+        } catch (InterruptedException interruptedException) {
+          // ignore
         }
+      }
     }
-
-    <T> void assertEventuallyEquals(final T expected, final Supplier<T> action, final String msg) {
-        assertEventuallyEquals(expected, action, msg, 5, 1000);
+    if (hasError && exception != null) {
+      throw exception;
     }
+  }
 
-    <T> void assertEventuallyEquals(final T expected, final Supplier<T> action, final String msg, final int retries, final long timeoutMs) {
-        int counter = 0;
-        boolean hasError = true;
-        AssertionFailedError exception = null;
-        while (counter < retries && hasError) {
-            try {
-                counter++;
-                assertEquals(expected, action.get(), msg);
-                hasError = false;
-            } catch (AssertionFailedError e) {
-                LOGGER.debug("Failed assertion on attempt: {}", counter);
-                exception = e;
-                try {
-                    Thread.sleep(timeoutMs);
-                } catch (InterruptedException interruptedException) {
-                    // ignore
-                }
-            }
-        }
-        if (hasError && exception != null) {
-            throw exception;
-        }
+  private void assertCollectionOrder(final boolean exact) {
+    assertCollectionOrder(getCollectionName(), exact);
+  }
+
+  private void assertCollectionOrder(final String collectionName, final boolean exactOrdering) {
+    List<Long> expectedIdOrder = LongStream.range(0, 100).boxed().collect(Collectors.toList());
+    List<Long> idOrder =
+        getCollection(collectionName).find().sort(Sorts.ascending("_id")).into(new ArrayList<>())
+            .stream()
+            .map(d -> d.getLong("id"))
+            .collect(Collectors.toList());
+
+    assertEquals(
+        new HashSet<>(expectedIdOrder),
+        new HashSet<>(idOrder),
+        format("%s missing expected values.", collectionName));
+    if (exactOrdering) {
+      assertEquals(expectedIdOrder, idOrder, format("%s is out of order.", collectionName));
+    } else {
+      assertNotEquals(
+          expectedIdOrder, idOrder, format("%s unexpectedly in order.", collectionName));
     }
-
-    private void assertCollectionOrder(final boolean exact) {
-        assertCollectionOrder(getCollectionName(), exact);
-    }
-
-    private void assertCollectionOrder(final String collectionName, final boolean exactOrdering) {
-        List<Long> expectedIdOrder = LongStream.range(0, 100).boxed().collect(Collectors.toList());
-        List<Long> idOrder = getCollection(collectionName).find().sort(Sorts.ascending("_id"))
-                .into(new ArrayList<>())
-                .stream()
-                .map(d -> d.getLong("id"))
-                .collect(Collectors.toList());
-
-        assertEquals(new HashSet<>(expectedIdOrder), new HashSet<>(idOrder), format("%s missing expected values.", collectionName));
-        if (exactOrdering) {
-            assertEquals(expectedIdOrder, idOrder, format("%s is out of order.", collectionName));
-        } else {
-            assertNotEquals(expectedIdOrder, idOrder, format("%s unexpectedly in order.", collectionName));
-        }
-    }
+  }
 }

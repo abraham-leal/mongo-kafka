@@ -41,24 +41,24 @@ class MongoSinkConnnectorTest {
     void testVersion() {
         WBAMongoSinkConnector sinkConnector = new WBAMongoSinkConnector();
 
-        assertEquals(Versions.VERSION, sinkConnector.version());
-    }
+    assertEquals(Versions.VERSION, sinkConnector.version());
+  }
 
     @Test
     @DisplayName("test task class")
     void testTaskClass() {
         WBAMongoSinkConnector sinkConnector = new WBAMongoSinkConnector();
 
-        assertEquals(MongoSinkTask.class, sinkConnector.taskClass());
-    }
+    assertEquals(MongoSinkTask.class, sinkConnector.taskClass());
+  }
 
     @Test
     @DisplayName("test task configs")
     void testConfig() {
         WBAMongoSinkConnector sinkConnector = new WBAMongoSinkConnector();
 
-        assertEquals(MongoSinkConfig.CONFIG, sinkConnector.config());
-    }
+    assertEquals(MongoSinkConfig.CONFIG, sinkConnector.config());
+  }
 
     @Test
     @DisplayName("test task configs")
@@ -67,11 +67,12 @@ class MongoSinkConnnectorTest {
         Map<String, String> configMap = new HashMap<String, String>() {{
             put("a", "1");
             put("b", "2");
-        }};
-        sinkConnector.start(configMap);
-        List<Map<String, String>> taskConfigs = sinkConnector.taskConfigs(10);
+          }
+        };
+    sinkConnector.start(configMap);
+    List<Map<String, String>> taskConfigs = sinkConnector.taskConfigs(10);
 
-        assertEquals(10, taskConfigs.size());
-        IntStream.range(0, 10).boxed().forEach(i -> assertEquals(configMap, taskConfigs.get(1)));
-    }
+    assertEquals(10, taskConfigs.size());
+    IntStream.range(0, 10).boxed().forEach(i -> assertEquals(configMap, taskConfigs.get(1)));
+  }
 }

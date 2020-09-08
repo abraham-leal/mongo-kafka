@@ -30,11 +30,11 @@ import com.mongodb.kafka.connect.sink.converter.SinkDocument;
 
 public abstract class CdcHandler {
 
-    private final MongoSinkTopicConfig config;
+  private final MongoSinkTopicConfig config;
 
-    public CdcHandler(final MongoSinkTopicConfig config) {
-        this.config = config;
-    }
+  public CdcHandler(final MongoSinkTopicConfig config) {
+    this.config = config;
+  }
 
     public MongoSinkTopicConfig getConfig() {
         return config;
@@ -43,4 +43,5 @@ public abstract class CdcHandler {
     public abstract Optional<WriteModel<BsonDocument>> handle(SinkDocument doc);
     public abstract Optional<WriteModel<BsonDocument>> handle(SinkDocument doc, KafkaProducer<String,String> dlqProducer);
 
+  public abstract Optional<WriteModel<BsonDocument>> handle(SinkDocument doc);
 }

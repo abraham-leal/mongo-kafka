@@ -50,182 +50,55 @@ import com.mongodb.kafka.connect.source.MongoSourceConfig;
 
 public final class ConnectorValidationTest {
 
-    private static final String DEFAULT_URI = "mongodb://localhost:27017/";
-    private static final String URI_SYSTEM_PROPERTY_NAME = "org.mongodb.test.uri";
-    private static final String DEFAULT_DATABASE_NAME = "MongoKafkaTest";
+  private static final String DEFAULT_URI = "mongodb://localhost:27017/";
+  private static final String URI_SYSTEM_PROPERTY_NAME = "org.mongodb.test.uri";
+  private static final String DEFAULT_DATABASE_NAME = "MongoKafkaTest";
 
-    private static final String CUSTOM_ROLE = "customRole";
-    private static final String CUSTOM_USER = "customUser";
-    private static final String CUSTOM_PASSWORD = "password";
-    private static final String CUSTOM_DATABASE = "customDatabase";
-    private static final String CUSTOM_COLLECTION = "customCollection";
-    private static MongoClient mongoClient;
+  private static final String CUSTOM_ROLE = "customRole";
+  private static final String CUSTOM_USER = "customUser";
+  private static final String CUSTOM_PASSWORD = "password";
+  private static final String CUSTOM_DATABASE = "customDatabase";
+  private static final String CUSTOM_COLLECTION = "customCollection";
+  private static MongoClient mongoClient;
 
-    @AfterAll
-    static void done() {
-        if (mongoClient != null) {
-            mongoClient.close();
-        }
+  @AfterAll
+  static void done() {
+    if (mongoClient != null) {
+      mongoClient.close();
     }
+  }
 
-    @AfterEach
-    void tearDown() {
-        dropUserAndRoles();
-    }
+  @AfterEach
+  void tearDown() {
+    dropUserAndRoles();
+  }
 
-    @Test
-    @DisplayName("Ensure sink configuration validation works")
-    void testSinkConfigValidation() {
-        assertValidSink(createSinkProperties());
-    }
+  @Test
+  @DisplayName("Ensure sink configuration validation works")
+  void testSinkConfigValidation() {
+    assertValidSink(createSinkProperties());
+  }
 
-    @Test
-    @DisplayName("Ensure sink configuration validation handles invalid connections")
-    void testSinkConfigValidationInvalidConnection() {
-        assertInvalidSink(createSinkProperties("mongodb://192.0.2.0:27017/?connectTimeoutMS=1000"));
-        assertInvalidSink(createSinkRegexProperties("mongodb://192.0.2.0:27017/?connectTimeoutMS=1000"));
-    }
+  @Test
+  @DisplayName("Ensure sink configuration validation handles invalid connections")
+  void testSinkConfigValidationInvalidConnection() {
+    assertInvalidSink(createSinkProperties("mongodb://192.0.2.0:27017/?connectTimeoutMS=1000"));
+    assertInvalidSink(
+        createSinkRegexProperties("mongodb://192.0.2.0:27017/?connectTimeoutMS=1000"));
+  }
 
-    @Test
-    @DisplayName("Ensure sink configuration validation handles invalid user")
-    void testSinkConfigValidationInvalidUser() {
-        assertInvalidSink(createSinkProperties(format("mongodb://fakeUser:fakePass@%s/",
-                        String.join(",", getConnectionString().getHosts()))));
-        assertInvalidSink(createSinkRegexProperties(format("mongodb://fakeUser:fakePass@%s/",
+  @Test
+  @DisplayName("Ensure sink configuration validation handles invalid user")
+  void testSinkConfigValidationInvalidUser() {
+    assertInvalidSink(
+        createSinkProperties(
+            format(
+                "mongodb://fakeUser:fakePass@%s/",
                 String.join(",", getConnectionString().getHosts()))));
-    }
-
-    @Test
-    @DisplayName("Ensure sink validation fails with read user")
-    void testSinkConfigValidationReadUser() {
-        assumeTrue(isAuthEnabled());
-        createUser("read");
-        assertInvalidSink(createSinkProperties(getConnectionStringForCustomUser()));
-        assertInvalidSink(createSinkRegexProperties(getConnectionStringForCustomUser()));
-    }
-
-    @Test
-    @DisplayName("Ensure sink validation passes with readWrite user")
-    void testSinkConfigValidationReadWriteUser() {
-        assumeTrue(isAuthEnabled());
-        createUser("readWrite");
-        assertValidSink(createSinkProperties(getConnectionStringForCustomUser()));
-        assertValidSink(createSinkRegexProperties(getConnectionStringForCustomUser()));
-    }
-
-    @Test
-    @DisplayName("Ensure sink validation passes with readWrite user on specific db")
-    void testSinkConfigValidationReadWriteOnSpecificDatabase() {
-        assumeTrue(isAuthEnabled());
-        createUserFromDocument(format("{ role: 'readWrite', db: '%s'}", CUSTOM_DATABASE));
-
-        Map<String, String> properties = createSinkProperties(getConnectionStringForCustomUser());
-
-        // Different database than has permissions for
-        assertInvalidSink(properties);
-
-        properties.put(MongoSinkTopicConfig.DATABASE_CONFIG, CUSTOM_DATABASE);
-        assertValidSink(properties);
-
-        // Regex tests
-        properties = createSinkRegexProperties(getConnectionStringForCustomUser());
-
-        // Different database than has permissions for
-        assertInvalidSink(properties);
-
-        properties.put(MongoSinkTopicConfig.DATABASE_CONFIG, CUSTOM_DATABASE);
-        assertValidSink(properties);
-    }
-
-    @Test
-    @DisplayName("Ensure sink validation passes with specific collection based privileges")
-    void testSinkConfigValidationCollectionBasedPrivileges() {
-        assumeTrue(isAuthEnabled());
-        createUserWithCustomRole(asList(
-                format("{resource: {db: '%s', collection: '%s'}, actions: ['find', 'insert'] }", CUSTOM_DATABASE, CUSTOM_COLLECTION),
-                "{resource: { cluster : true }, actions: ['remove', 'update'] }"));
-
-        Map<String, String> properties = createSinkProperties(getConnectionStringForCustomUser());
-
-        // Different database than has permissions for
-        assertInvalidSink(properties);
-
-        // Different collection than has permissions for
-        properties.put(MongoSinkTopicConfig.DATABASE_CONFIG, CUSTOM_DATABASE);
-        assertInvalidSink(properties);
-
-        // Different collection than has permissions for
-        properties.put(MongoSinkTopicConfig.COLLECTION_CONFIG, CUSTOM_COLLECTION);
-        assertValidSink(properties);
-
-        // Regex tests
-        properties = createSinkRegexProperties(getConnectionStringForCustomUser());
-
-        // Different database than has permissions for
-        assertInvalidSink(properties);
-
-        // Different collection than has permissions for
-        properties.put(MongoSinkTopicConfig.DATABASE_CONFIG, CUSTOM_DATABASE);
-        assertInvalidSink(properties);
-
-        // Different collection than has permissions for
-        properties.put(MongoSinkTopicConfig.COLLECTION_CONFIG, CUSTOM_COLLECTION);
-        assertValidSink(properties);
-    }
-
-    @Test
-    @DisplayName("Ensure sink validation passes with specific collection based privileges with a different auth db")
-    void testSinkConfigValidationCollectionBasedDifferentAuthPrivileges() {
-        assumeTrue(isAuthEnabled());
-        createUserWithCustomRole(CUSTOM_DATABASE,
-                singletonList(
-                        format("{resource: {db: '%s', collection: '%s'}, ", CUSTOM_DATABASE, CUSTOM_COLLECTION)
-                                + "actions: ['find', 'insert', 'remove', 'update'] }"), emptyList());
-
-        Map<String, String> properties = createSinkProperties(getConnectionStringForCustomUser(CUSTOM_DATABASE));
-
-        // Different database than has permissions for
-        assertInvalidSink(properties);
-
-        // Different collection than has permissions for
-        properties.put(MongoSinkTopicConfig.DATABASE_CONFIG, CUSTOM_DATABASE);
-        assertInvalidSink(properties);
-
-        // Same collection than has permissions for
-        properties.put(MongoSinkTopicConfig.COLLECTION_CONFIG, CUSTOM_COLLECTION);
-        assertValidSink(properties);
-
-        // Regex tests
-        properties = createSinkRegexProperties(getConnectionStringForCustomUser(CUSTOM_DATABASE));
-
-        // Different database than has permissions for
-        assertInvalidSink(properties);
-
-        // Different collection than has permissions for
-        properties.put(MongoSinkTopicConfig.DATABASE_CONFIG, CUSTOM_DATABASE);
-        assertInvalidSink(properties);
-
-        // Same collection than has permissions for
-        properties.put(MongoSinkTopicConfig.COLLECTION_CONFIG, CUSTOM_COLLECTION);
-        assertValidSink(properties);
-    }
-
-    @Test
-    @DisplayName("Ensure source configuration validation works")
-    void testSourceConfigValidation() {
-        assertValidSource(createSourceProperties());
-    }
-
-    @Test
-    @DisplayName("Ensure source configuration validation handles invalid connections")
-    void testSourceConfigValidationInvalidConnection() {
-        assertInvalidSource(createSourceProperties("mongodb://192.0.2.0:27017/?connectTimeoutMS=1000"));
-    }
-
-    @Test
-    @DisplayName("Ensure source configuration validation handles invalid user")
-    void testSourceConfigValidationInvalidUser() {
-        assertInvalidSource(createSourceProperties(format("mongodb://fakeUser:fakePass@%s/",
+    assertInvalidSink(
+        createSinkRegexProperties(
+            format(
+                "mongodb://fakeUser:fakePass@%s/",
                 String.join(",", getConnectionString().getHosts()))));
     }
 
