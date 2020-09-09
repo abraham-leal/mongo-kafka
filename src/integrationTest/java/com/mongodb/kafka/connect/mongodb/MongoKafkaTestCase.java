@@ -30,8 +30,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 
-import com.mongodb.kafka.connect.WBAMongoSinkConnector;
-import com.mongodb.kafka.connect.WBAMongoSourceConnector;
 import io.confluent.connect.avro.AvroConverter;
 
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -51,6 +49,8 @@ import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 
+import com.mongodb.kafka.connect.WBAMongoSinkConnector;
+import com.mongodb.kafka.connect.WBAMongoSourceConnector;
 import com.mongodb.kafka.connect.embedded.EmbeddedKafka;
 import com.mongodb.kafka.connect.sink.MongoSinkConfig;
 import com.mongodb.kafka.connect.sink.MongoSinkTopicConfig;
@@ -333,70 +333,12 @@ public class MongoKafkaTestCase {
             return data.subList(startIndex, startIndex + expected.size());
           }
         }
-<<<<<<< HEAD
-    }
-
-    public KafkaConsumer<?, ?> createConsumer() {
-        Properties props = new Properties();
-        props.put(ConsumerConfig.GROUP_ID_CONFIG, "testAssertProducedConsumer");
-        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, KAFKA.bootstrapServers());
-        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.BytesDeserializer");
-        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.BytesDeserializer");
-        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-        props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
-        props.put(ConsumerConfig.ISOLATION_LEVEL_CONFIG, "read_committed");
-
-        return new KafkaConsumer<>(props);
-    }
-
-    public void addSinkConnector(final String topicName) {
-        Properties props = new Properties();
-        props.put("topics", topicName);
-        addSinkConnector(props);
-    }
-
-    public void addSinkConnector(final Properties overrides) {
-        Properties props = new Properties();
-        props.put("connector.class", WBAMongoSinkConnector.class.getName());
-        props.put(MongoSinkConfig.CONNECTION_URI_CONFIG, MONGODB.getConnectionString().toString());
-        props.put(MongoSinkTopicConfig.DATABASE_CONFIG, MONGODB.getDatabaseName());
-        props.put(MongoSinkTopicConfig.COLLECTION_CONFIG, getCollectionName());
-        props.put("key.converter", AvroConverter.class.getName());
-        props.put("key.converter.schema.registry.url", KAFKA.schemaRegistryUrl());
-        props.put("value.converter", AvroConverter.class.getName());
-        props.put("value.converter.schema.registry.url", KAFKA.schemaRegistryUrl());
-
-        overrides.forEach(props::put);
-        KAFKA.addSinkConnector(props);
-    }
-
-    public void addSourceConnector() {
-        addSourceConnector(new Properties());
-    }
-
-    public void addSourceConnector(final Properties overrides) {
-        Properties props = new Properties();
-        props.put("connector.class", WBAMongoSourceConnector.class.getName());
-        props.put(MongoSourceConfig.CONNECTION_URI_CONFIG, MONGODB.getConnectionString().toString());
-
-        overrides.forEach(props::put);
-        KAFKA.addSourceConnector(props);
-        sleep(10000);
-    }
-
-    public void restartSinkConnector(final String topicName) {
-        Properties props = new Properties();
-        props.put("topics", topicName);
-        restartSinkConnector(props);
-    }
-=======
 
         // Wait at least 3 minutes for the first set of data to arrive
         if (expected.size() == 0 || data.size() > 0 || counter > 90) {
           retryCount += previousDataSize == data.size() ? 1 : 0;
         }
       }
->>>>>>> origin/master
 
       return data;
     }
@@ -432,7 +374,7 @@ public class MongoKafkaTestCase {
 
   public void addSinkConnector(final Properties overrides) {
     Properties props = new Properties();
-    props.put("connector.class", MongoSinkConnector.class.getName());
+    props.put("connector.class", WBAMongoSinkConnector.class.getName());
     props.put(MongoSinkConfig.CONNECTION_URI_CONFIG, MONGODB.getConnectionString().toString());
     props.put(MongoSinkTopicConfig.DATABASE_CONFIG, MONGODB.getDatabaseName());
     props.put(MongoSinkTopicConfig.COLLECTION_CONFIG, getCollectionName());
@@ -451,7 +393,7 @@ public class MongoKafkaTestCase {
 
   public void addSourceConnector(final Properties overrides) {
     Properties props = new Properties();
-    props.put("connector.class", MongoSourceConnector.class.getName());
+    props.put("connector.class", WBAMongoSourceConnector.class.getName());
     props.put(MongoSourceConfig.CONNECTION_URI_CONFIG, MONGODB.getConnectionString().toString());
 
     overrides.forEach(props::put);

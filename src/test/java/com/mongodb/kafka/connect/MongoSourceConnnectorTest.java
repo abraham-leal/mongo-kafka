@@ -35,35 +35,37 @@ import com.mongodb.kafka.connect.source.MongoSourceTask;
 @RunWith(JUnitPlatform.class)
 class MongoSourceConnnectorTest {
 
-    @Test
-    @DisplayName("Should return the expected version")
-    void testVersion() {
-        WBAMongoSourceConnector sourceConnector = new WBAMongoSourceConnector();
+  @Test
+  @DisplayName("Should return the expected version")
+  void testVersion() {
+    WBAMongoSourceConnector sourceConnector = new WBAMongoSourceConnector();
 
     assertEquals(Versions.VERSION, sourceConnector.version());
   }
 
-    @Test
-    @DisplayName("test task class")
-    void testTaskClass() {
-        WBAMongoSourceConnector sourceConnector = new WBAMongoSourceConnector();
+  @Test
+  @DisplayName("test task class")
+  void testTaskClass() {
+    WBAMongoSourceConnector sourceConnector = new WBAMongoSourceConnector();
 
     assertEquals(MongoSourceTask.class, sourceConnector.taskClass());
   }
 
-    @Test
-    @DisplayName("test task configs")
-    void testConfig() {
-        WBAMongoSourceConnector sourceConnector = new WBAMongoSourceConnector();
+  @Test
+  @DisplayName("test task configs")
+  void testConfig() {
+    WBAMongoSourceConnector sourceConnector = new WBAMongoSourceConnector();
 
     assertEquals(MongoSourceConfig.CONFIG, sourceConnector.config());
   }
 
-    @Test
-    @DisplayName("test task configs")
-    void testTaskConfigs() {
-        WBAMongoSourceConnector sourceConnector = new WBAMongoSourceConnector();
-        Map<String, String> configMap = new HashMap<String, String>() {{
+  @Test
+  @DisplayName("test task configs")
+  void testTaskConfigs() {
+    WBAMongoSourceConnector sourceConnector = new WBAMongoSourceConnector();
+    Map<String, String> configMap =
+        new HashMap<String, String>() {
+          {
             put("a", "1");
             put("b", "2");
           }

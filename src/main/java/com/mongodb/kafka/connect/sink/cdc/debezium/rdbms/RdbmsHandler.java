@@ -80,33 +80,34 @@ public class RdbmsHandler extends DebeziumCdcHandler {
   }
 
   @Override
-  public Optional<WriteModel<BsonDocument>> handle(SinkDocument doc, KafkaProducer<String, String> dlqProducer) {
-      BsonDocument keyDoc = doc.getKeyDoc().orElseGet(BsonDocument::new);
+  public Optional<WriteModel<BsonDocument>> handle(
+      final SinkDocument doc, final KafkaProducer<String, String> dlqProducer) {
+    BsonDocument keyDoc = doc.getKeyDoc().orElseGet(BsonDocument::new);
 
-      BsonDocument valueDoc = doc.getValueDoc().orElseGet(BsonDocument::new);
+    BsonDocument valueDoc = doc.getValueDoc().orElseGet(BsonDocument::new);
 
-      if (valueDoc.isEmpty()) {
-          LOGGER.debug("skipping debezium tombstone event for kafka topic compaction");
-          return Optional.empty();
-      }
+    if (valueDoc.isEmpty()) {
+      LOGGER.debug("skipping debezium tombstone event for kafka topic compaction");
+      return Optional.empty();
+    }
 
-      return Optional.of(getCdcOperation(valueDoc)
-              .perform(new SinkDocument(keyDoc, valueDoc)));
+    return Optional.of(getCdcOperation(valueDoc).perform(new SinkDocument(keyDoc, valueDoc)));
   }
 
-  static BsonDocument generateFilterDoc(final BsonDocument keyDoc, final BsonDocument valueDoc, final OperationType opType) {
+  static BsonDocument generateFilterDoc(
+      final BsonDocument keyDoc, final BsonDocument valueDoc, final OperationType opType) {
     if (keyDoc.keySet().isEmpty()) {
-            if (opType.equals(OperationType.CREATE) || opType.equals(OperationType.READ)) {
-                //create: no PK info in keyDoc -> generate ObjectId
-                return new BsonDocument(ID_FIELD, new BsonObjectId());
-            }
-            //update or delete: no PK info in keyDoc -> take everything in 'before' field
-            try {
-                BsonDocument filter = valueDoc.getDocument(JSON_DOC_BEFORE_FIELD);
-                if (filter.isEmpty()) {
-                    throw new BsonInvalidOperationException("value doc before field is empty");
-                }
-                return filter;
+      if (opType.equals(OperationType.CREATE) || opType.equals(OperationType.READ)) {
+        // create: no PK info in keyDoc -> generate ObjectId
+        return new BsonDocument(ID_FIELD, new BsonObjectId());
+      }
+      // update or delete: no PK info in keyDoc -> take everything in 'before' field
+      try {
+        BsonDocument filter = valueDoc.getDocument(JSON_DOC_BEFORE_FIELD);
+        if (filter.isEmpty()) {
+          throw new BsonInvalidOperationException("value doc before field is empty");
+        }
+        return filter;
       } catch (BsonInvalidOperationException exc) {
         throw new DataException(
             "Error: value doc 'before' field is empty or has invalid type"

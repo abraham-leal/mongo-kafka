@@ -36,35 +36,37 @@ import com.mongodb.kafka.connect.sink.MongoSinkTask;
 @RunWith(JUnitPlatform.class)
 class MongoSinkConnnectorTest {
 
-    @Test
-    @DisplayName("Should return the expected version")
-    void testVersion() {
-        WBAMongoSinkConnector sinkConnector = new WBAMongoSinkConnector();
+  @Test
+  @DisplayName("Should return the expected version")
+  void testVersion() {
+    WBAMongoSinkConnector sinkConnector = new WBAMongoSinkConnector();
 
     assertEquals(Versions.VERSION, sinkConnector.version());
   }
 
-    @Test
-    @DisplayName("test task class")
-    void testTaskClass() {
-        WBAMongoSinkConnector sinkConnector = new WBAMongoSinkConnector();
+  @Test
+  @DisplayName("test task class")
+  void testTaskClass() {
+    WBAMongoSinkConnector sinkConnector = new WBAMongoSinkConnector();
 
     assertEquals(MongoSinkTask.class, sinkConnector.taskClass());
   }
 
-    @Test
-    @DisplayName("test task configs")
-    void testConfig() {
-        WBAMongoSinkConnector sinkConnector = new WBAMongoSinkConnector();
+  @Test
+  @DisplayName("test task configs")
+  void testConfig() {
+    WBAMongoSinkConnector sinkConnector = new WBAMongoSinkConnector();
 
     assertEquals(MongoSinkConfig.CONFIG, sinkConnector.config());
   }
 
-    @Test
-    @DisplayName("test task configs")
-    void testTaskConfigs() {
-        WBAMongoSinkConnector sinkConnector = new WBAMongoSinkConnector();
-        Map<String, String> configMap = new HashMap<String, String>() {{
+  @Test
+  @DisplayName("test task configs")
+  void testTaskConfigs() {
+    WBAMongoSinkConnector sinkConnector = new WBAMongoSinkConnector();
+    Map<String, String> configMap =
+        new HashMap<String, String>() {
+          {
             put("a", "1");
             put("b", "2");
           }

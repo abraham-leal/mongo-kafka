@@ -100,225 +100,258 @@ public final class ConnectorValidationTest {
             format(
                 "mongodb://fakeUser:fakePass@%s/",
                 String.join(",", getConnectionString().getHosts()))));
+  }
+
+  @Test
+  @DisplayName("Ensure source validation passes with read user")
+  void testSourceConfigValidationReadUser() {
+    assumeTrue(isAuthEnabled());
+    createUser("read");
+    assertValidSource(createSourceProperties(getConnectionStringForCustomUser()));
+  }
+
+  @Test
+  @DisplayName("Ensure source validation passes with read user on specific db")
+  void testSourceConfigValidationReadUserOnSpecificDatabase() {
+    assumeTrue(isAuthEnabled());
+    createUserFromDocument(format("{ role: 'read', db: '%s' }", CUSTOM_DATABASE));
+
+    Map<String, String> properties = createSourceProperties(getConnectionStringForCustomUser());
+
+    // Different database than has permissions for
+    assertInvalidSource(properties);
+
+    properties.put(MongoSourceConfig.DATABASE_CONFIG, CUSTOM_DATABASE);
+    assertValidSource(properties);
+  }
+
+  @Test
+  @DisplayName("Ensure source validation passes with specific collection based privileges")
+  void testSourceConfigValidationCollectionBasedPrivileges() {
+    assumeTrue(isAuthEnabled());
+    createUserWithCustomRole(
+        asList(
+            format(
+                "{resource: {db: '%s', collection: '%s'}, actions: ['find', 'insert'] }",
+                CUSTOM_DATABASE, CUSTOM_COLLECTION),
+            "{resource: { cluster : true }, actions: ['changeStream'] }"));
+
+    Map<String, String> properties = createSourceProperties(getConnectionStringForCustomUser());
+
+    // Different database than has permissions for
+    assertInvalidSource(properties);
+
+    // Different collection than has permissions for
+    properties.put(MongoSourceConfig.DATABASE_CONFIG, CUSTOM_DATABASE);
+    assertInvalidSource(properties);
+
+    // Same collection than has permissions for
+    properties.put(MongoSourceConfig.COLLECTION_CONFIG, CUSTOM_COLLECTION);
+    assertValidSource(properties);
+  }
+
+  // Helper methods
+  private void assertInvalidSource(final Map<String, String> properties) {
+    Config config = new WBAMongoSourceConnector().validate(properties);
+    List<String> errorMessages =
+        getConfigValue(config, MongoSourceConfig.CONNECTION_URI_CONFIG).errorMessages();
+    assertFalse(errorMessages.isEmpty(), "ErrorMessages shouldn't be empty");
+  }
+
+  private void assertValidSource(final Map<String, String> properties) {
+    assumeTrue(isReplicaSetOrSharded());
+    Config config = new WBAMongoSourceConnector().validate(properties);
+    List<String> errorMessages =
+        getConfigValue(config, MongoSourceConfig.CONNECTION_URI_CONFIG).errorMessages();
+    assertTrue(errorMessages.isEmpty(), format("ErrorMessages not empty: %s", errorMessages));
+  }
+
+  private void assertInvalidSink(final Map<String, String> properties) {
+    Config config = new WBAMongoSinkConnector().validate(properties);
+    List<String> errorMessages =
+        getConfigValue(config, MongoSourceConfig.CONNECTION_URI_CONFIG).errorMessages();
+    assertFalse(errorMessages.isEmpty(), "ErrorMessages shouldn't be empty");
+  }
+
+  private void assertValidSink(final Map<String, String> properties) {
+    Config config = new WBAMongoSinkConnector().validate(properties);
+    List<String> errorMessages =
+        getConfigValue(config, MongoSourceConfig.CONNECTION_URI_CONFIG).errorMessages();
+    assertTrue(errorMessages.isEmpty(), format("ErrorMessages not empty: %s", errorMessages));
+  }
+
+  private void createUser(final String role) {
+    createUser(getConnectionString().getCredential().getSource(), role);
+  }
+
+  private void createUser(final String databaseName, final String role) {
+    createUser(databaseName, singletonList(role));
+  }
+
+  private void createUser(final String databaseName, final List<String> roles) {
+    String userRoles = roles.stream().map(s -> "\"" + s + "\"").collect(Collectors.joining(","));
+    getMongoClient()
+        .getDatabase(databaseName)
+        .runCommand(
+            Document.parse(
+                format(
+                    "{createUser: '%s', pwd: '%s', roles: [%s]}",
+                    CUSTOM_USER, CUSTOM_PASSWORD, userRoles)));
+  }
+
+  private void createUserFromDocument(final String role) {
+    createUserFromDocument(singletonList(role));
+  }
+
+  private void createUserFromDocument(final List<String> roles) {
+    getMongoClient()
+        .getDatabase(getConnectionString().getCredential().getSource())
+        .runCommand(
+            Document.parse(
+                format(
+                    "{createUser: '%s', pwd: '%s', roles: [%s]}",
+                    CUSTOM_USER, CUSTOM_PASSWORD, String.join(",", roles))));
+  }
+
+  private void createUserWithCustomRole(final List<String> privileges) {
+    createUserWithCustomRole(privileges, emptyList());
+  }
+
+  private void createUserWithCustomRole(final List<String> privileges, final List<String> roles) {
+    createUserWithCustomRole(getConnectionString().getCredential().getSource(), privileges, roles);
+  }
+
+  private void createUserWithCustomRole(
+      final String databaseName, final List<String> privileges, final List<String> roles) {
+    getMongoClient()
+        .getDatabase(databaseName)
+        .runCommand(
+            Document.parse(
+                format(
+                    "{createRole: '%s', privileges: [%s], roles: [%s]}",
+                    CUSTOM_ROLE, String.join(",", privileges), String.join(",", roles))));
+    createUser(databaseName, CUSTOM_ROLE);
+  }
+
+  private void dropUserAndRoles() {
+    if (isAuthEnabled()) {
+      List<MongoDatabase> databases =
+          asList(
+              getMongoClient().getDatabase(getConnectionString().getCredential().getSource()),
+              getMongoClient().getDatabase(CUSTOM_DATABASE));
+
+      for (final MongoDatabase database : databases) {
+        tryAndIgnore(
+            () -> database.runCommand(Document.parse(format("{dropUser: '%s'}", CUSTOM_USER))));
+        tryAndIgnore(
+            () -> database.runCommand(Document.parse(format("{dropRole: '%s'}", CUSTOM_ROLE))));
+        tryAndIgnore(() -> database.runCommand(Document.parse("{invalidateUserCache: 1}")));
+      }
     }
+  }
 
-    @Test
-    @DisplayName("Ensure source validation passes with read user")
-    void testSourceConfigValidationReadUser() {
-        assumeTrue(isAuthEnabled());
-        createUser("read");
-        assertValidSource(createSourceProperties(getConnectionStringForCustomUser()));
+  public static void tryAndIgnore(final Runnable r) {
+    try {
+      r.run();
+    } catch (Exception e) {
+      // Ignore
     }
+  }
 
-    @Test
-    @DisplayName("Ensure source validation passes with read user on specific db")
-    void testSourceConfigValidationReadUserOnSpecificDatabase() {
-        assumeTrue(isAuthEnabled());
-        createUserFromDocument(format("{ role: 'read', db: '%s' }", CUSTOM_DATABASE));
-
-        Map<String, String> properties = createSourceProperties(getConnectionStringForCustomUser());
-
-        // Different database than has permissions for
-        assertInvalidSource(properties);
-
-        properties.put(MongoSourceConfig.DATABASE_CONFIG, CUSTOM_DATABASE);
-        assertValidSource(properties);
+  private MongoClient getMongoClient() {
+    if (mongoClient == null) {
+      mongoClient = MongoClients.create(getConnectionString());
     }
+    return mongoClient;
+  }
 
-    @Test
-    @DisplayName("Ensure source validation passes with specific collection based privileges")
-    void testSourceConfigValidationCollectionBasedPrivileges() {
-        assumeTrue(isAuthEnabled());
-        createUserWithCustomRole(asList(
-                format("{resource: {db: '%s', collection: '%s'}, actions: ['find', 'insert'] }", CUSTOM_DATABASE, CUSTOM_COLLECTION),
-                "{resource: { cluster : true }, actions: ['changeStream'] }"));
+  private String getConnectionStringForCustomUser() {
+    return getConnectionStringForCustomUser(getConnectionString().getCredential().getSource());
+  }
 
-        Map<String, String> properties = createSourceProperties(getConnectionStringForCustomUser());
+  private String getConnectionStringForCustomUser(final String authSource) {
+    String connectionString = getConnectionString().toString();
+    String scheme = getConnectionString().isSrvProtocol() ? "mongodb+srv://" : "mongodb://";
+    String hostsAndQuery = connectionString.split("@")[1];
+    String userConnectionString =
+        format("%s%s:%s@%s", scheme, CUSTOM_USER, CUSTOM_PASSWORD, hostsAndQuery);
+    userConnectionString =
+        userConnectionString.replace(
+            format("authSource=%s", getConnectionString().getCredential().getSource()),
+            format("authSource=%s", authSource));
 
-        // Different database than has permissions for
-        assertInvalidSource(properties);
-
-        // Different collection than has permissions for
-        properties.put(MongoSourceConfig.DATABASE_CONFIG, CUSTOM_DATABASE);
-        assertInvalidSource(properties);
-
-        // Same collection than has permissions for
-        properties.put(MongoSourceConfig.COLLECTION_CONFIG, CUSTOM_COLLECTION);
-        assertValidSource(properties);
+    if (!userConnectionString.contains("authSource")) {
+      String separator = userConnectionString.contains("/?") ? "&" : "?";
+      userConnectionString =
+          format("%s%sauthSource=%s", userConnectionString, separator, authSource);
     }
+    return userConnectionString;
+  }
 
-    // Helper methods
-    private void assertInvalidSource(final Map<String, String> properties) {
-        Config config = new WBAMongoSourceConnector().validate(properties);
-        List<String> errorMessages = getConfigValue(config, MongoSourceConfig.CONNECTION_URI_CONFIG).errorMessages();
-        assertFalse(errorMessages.isEmpty(), "ErrorMessages shouldn't be empty");
+  private boolean isAuthEnabled() {
+    return getConnectionString().getCredential() != null;
+  }
+
+  private boolean isReplicaSetOrSharded() {
+    try (MongoClient mongoClient = MongoClients.create(getConnectionString())) {
+      Document isMaster =
+          mongoClient.getDatabase("admin").runCommand(BsonDocument.parse("{isMaster: 1}"));
+      return isMaster.containsKey("setName") || isMaster.get("msg", "").equals("isdbgrid");
+    } catch (Exception e) {
+      return false;
     }
+  }
 
-    private void assertValidSource(final Map<String, String> properties) {
-        assumeTrue(isReplicaSetOrSharded());
-        Config config = new WBAMongoSourceConnector().validate(properties);
-        List<String> errorMessages = getConfigValue(config, MongoSourceConfig.CONNECTION_URI_CONFIG).errorMessages();
-        assertTrue(errorMessages.isEmpty(), format("ErrorMessages not empty: %s", errorMessages));
-    }
+  private ConfigValue getConfigValue(final Config config, final String configName) {
+    return config.configValues().stream()
+        .filter(cv -> cv.name().equals(configName))
+        .collect(Collectors.toList())
+        .get(0);
+  }
 
-    private void assertInvalidSink(final Map<String, String> properties) {
-        Config config = new WBAMongoSinkConnector().validate(properties);
-        List<String> errorMessages = getConfigValue(config, MongoSourceConfig.CONNECTION_URI_CONFIG).errorMessages();
-        assertFalse(errorMessages.isEmpty(), "ErrorMessages shouldn't be empty");
-    }
+  private String getDatabaseName() {
+    String databaseName = getConnectionString().getDatabase();
+    return databaseName != null ? databaseName : DEFAULT_DATABASE_NAME;
+  }
 
-    private void assertValidSink(final Map<String, String> properties) {
-        Config config = new WBAMongoSinkConnector().validate(properties);
-        List<String> errorMessages = getConfigValue(config, MongoSourceConfig.CONNECTION_URI_CONFIG).errorMessages();
-        assertTrue(errorMessages.isEmpty(), format("ErrorMessages not empty: %s", errorMessages));
-    }
+  private ConnectionString getConnectionString() {
+    String mongoURIProperty = System.getProperty(URI_SYSTEM_PROPERTY_NAME);
+    String mongoURIString =
+        mongoURIProperty == null || mongoURIProperty.isEmpty() ? DEFAULT_URI : mongoURIProperty;
+    return new ConnectionString(mongoURIString);
+  }
 
-    private void createUser(final String role) {
-        createUser(getConnectionString().getCredential().getSource(), role);
-    }
+  private Map<String, String> createSinkProperties() {
+    return createSinkProperties(getConnectionString().toString());
+  }
 
-    private void createUser(final String databaseName, final String role) {
-        createUser(databaseName, singletonList(role));
-    }
+  private Map<String, String> createSinkProperties(final String connectionString) {
+    Map<String, String> properties = createProperties(connectionString);
+    properties.put(MongoSinkConfig.TOPICS_CONFIG, "test");
+    properties.put(MongoSinkTopicConfig.DATABASE_CONFIG, "test");
+    properties.put(MongoSinkTopicConfig.COLLECTION_CONFIG, "test");
+    return properties;
+  }
 
-    private void createUser(final String databaseName, final List<String> roles) {
-        String userRoles = roles.stream().map(s -> "\"" + s + "\"").collect(Collectors.joining(","));
-        getMongoClient().getDatabase(databaseName)
-                .runCommand(Document.parse(format("{createUser: '%s', pwd: '%s', roles: [%s]}", CUSTOM_USER, CUSTOM_PASSWORD, userRoles)));
-    }
+  private Map<String, String> createSinkRegexProperties(final String connectionString) {
+    Map<String, String> properties = createSinkProperties(connectionString);
+    properties.remove(MongoSinkConfig.TOPICS_CONFIG);
+    properties.put(MongoSinkConfig.TOPICS_REGEX_CONFIG, "topic-(.*)");
+    return properties;
+  }
 
-    private void createUserFromDocument(final String role) {
-        createUserFromDocument(singletonList(role));
-    }
+  private Map<String, String> createSourceProperties() {
+    return createSourceProperties(getConnectionString().toString());
+  }
 
-    private void createUserFromDocument(final List<String> roles) {
-        getMongoClient().getDatabase(getConnectionString().getCredential().getSource())
-                .runCommand(Document.parse(format("{createUser: '%s', pwd: '%s', roles: [%s]}", CUSTOM_USER, CUSTOM_PASSWORD,
-                        String.join(",", roles))));
-    }
+  private Map<String, String> createSourceProperties(final String connectionString) {
+    return createProperties(connectionString);
+  }
 
-    private void createUserWithCustomRole(final List<String> privileges) {
-        createUserWithCustomRole(privileges, emptyList());
-    }
-
-    private void createUserWithCustomRole(final List<String> privileges, final List<String> roles) {
-        createUserWithCustomRole(getConnectionString().getCredential().getSource(), privileges, roles);
-    }
-
-    private void createUserWithCustomRole(final String databaseName, final List<String> privileges, final List<String> roles) {
-        getMongoClient().getDatabase(databaseName)
-                .runCommand(Document.parse(format("{createRole: '%s', privileges: [%s], roles: [%s]}", CUSTOM_ROLE,
-                        String.join(",", privileges), String.join(",", roles))));
-        createUser(databaseName, CUSTOM_ROLE);
-    }
-
-    private void dropUserAndRoles() {
-        if (isAuthEnabled()) {
-            List<MongoDatabase> databases = asList(
-                    getMongoClient().getDatabase(getConnectionString().getCredential().getSource()),
-                    getMongoClient().getDatabase(CUSTOM_DATABASE));
-
-            for (final MongoDatabase database : databases) {
-                tryAndIgnore(() -> database.runCommand(Document.parse(format("{dropUser: '%s'}", CUSTOM_USER))));
-                tryAndIgnore(() -> database.runCommand(Document.parse(format("{dropRole: '%s'}", CUSTOM_ROLE))));
-                tryAndIgnore(() -> database.runCommand(Document.parse("{invalidateUserCache: 1}")));
-            }
-        }
-    }
-
-    public static void tryAndIgnore(final Runnable r) {
-        try {
-            r.run();
-        } catch (Exception e) {
-            // Ignore
-        }
-    }
-
-    private MongoClient getMongoClient() {
-        if (mongoClient == null) {
-            mongoClient = MongoClients.create(getConnectionString());
-        }
-        return mongoClient;
-    }
-
-    private String getConnectionStringForCustomUser() {
-        return getConnectionStringForCustomUser(getConnectionString().getCredential().getSource());
-    }
-
-    private String getConnectionStringForCustomUser(final String authSource) {
-        String connectionString = getConnectionString().toString();
-        String scheme = getConnectionString().isSrvProtocol() ? "mongodb+srv://" : "mongodb://";
-        String hostsAndQuery = connectionString.split("@")[1];
-        String userConnectionString = format("%s%s:%s@%s", scheme, CUSTOM_USER, CUSTOM_PASSWORD, hostsAndQuery);
-        userConnectionString = userConnectionString.replace(format("authSource=%s", getConnectionString().getCredential().getSource()),
-                    format("authSource=%s", authSource));
-
-        if (!userConnectionString.contains("authSource")) {
-            String separator = userConnectionString.contains("/?") ? "&" : "?";
-            userConnectionString = format("%s%sauthSource=%s", userConnectionString, separator, authSource);
-        }
-        return userConnectionString;
-    }
-
-    private boolean isAuthEnabled() {
-        return getConnectionString().getCredential() != null;
-    }
-
-    private  boolean isReplicaSetOrSharded() {
-        try (MongoClient mongoClient = MongoClients.create(getConnectionString())) {
-            Document isMaster = mongoClient.getDatabase("admin").runCommand(BsonDocument.parse("{isMaster: 1}"));
-            return isMaster.containsKey("setName") || isMaster.get("msg", "").equals("isdbgrid");
-        } catch (Exception e) {
-            return false;
-        }
-    }
-
-    private ConfigValue getConfigValue(final Config config, final String configName) {
-        return config.configValues().stream().filter(cv -> cv.name().equals(configName)).collect(Collectors.toList()).get(0);
-    }
-
-    private String getDatabaseName() {
-        String databaseName = getConnectionString().getDatabase();
-        return databaseName != null ? databaseName : DEFAULT_DATABASE_NAME;
-    }
-
-    private ConnectionString getConnectionString() {
-        String mongoURIProperty = System.getProperty(URI_SYSTEM_PROPERTY_NAME);
-        String mongoURIString = mongoURIProperty == null || mongoURIProperty.isEmpty() ? DEFAULT_URI : mongoURIProperty;
-        return new ConnectionString(mongoURIString);
-    }
-
-    private Map<String, String> createSinkProperties() {
-        return createSinkProperties(getConnectionString().toString());
-    }
-
-    private Map<String, String> createSinkProperties(final String connectionString) {
-        Map<String, String> properties = createProperties(connectionString);
-        properties.put(MongoSinkConfig.TOPICS_CONFIG, "test");
-        properties.put(MongoSinkTopicConfig.DATABASE_CONFIG, "test");
-        properties.put(MongoSinkTopicConfig.COLLECTION_CONFIG, "test");
-        return properties;
-    }
-
-    private Map<String, String> createSinkRegexProperties(final String connectionString) {
-        Map<String, String> properties = createSinkProperties(connectionString);
-        properties.remove(MongoSinkConfig.TOPICS_CONFIG);
-        properties.put(MongoSinkConfig.TOPICS_REGEX_CONFIG, "topic-(.*)");
-        return properties;
-    }
-
-    private Map<String, String> createSourceProperties() {
-        return createSourceProperties(getConnectionString().toString());
-    }
-
-    private Map<String, String> createSourceProperties(final String connectionString) {
-        return createProperties(connectionString);
-    }
-
-    private Map<String, String> createProperties(final String connectionString) {
-        Map<String, String> properties = new HashMap<>();
-        properties.put(MongoSinkConfig.CONNECTION_URI_CONFIG, connectionString);
-        properties.put(MongoSinkTopicConfig.DATABASE_CONFIG, getDatabaseName());
-        return properties;
-    }
+  private Map<String, String> createProperties(final String connectionString) {
+    Map<String, String> properties = new HashMap<>();
+    properties.put(MongoSinkConfig.CONNECTION_URI_CONFIG, connectionString);
+    properties.put(MongoSinkTopicConfig.DATABASE_CONFIG, getDatabaseName());
+    return properties;
+  }
 }

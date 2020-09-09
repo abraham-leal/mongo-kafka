@@ -42,12 +42,12 @@ public class WBAMongoSinkConnector extends SinkConnector {
 
   @Override
   public String version() {
-      return Versions.VERSION;
+    return Versions.VERSION;
   }
 
   @Override
   public void start(final Map<String, String> map) {
-      settings = map;
+    settings = map;
   }
 
   @Override

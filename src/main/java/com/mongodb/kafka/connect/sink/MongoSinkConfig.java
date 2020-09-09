@@ -33,7 +33,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import com.mongodb.kafka.connect.WBAMongoSinkConnector;
 import org.apache.kafka.common.config.AbstractConfig;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Importance;
@@ -43,11 +42,12 @@ import org.apache.kafka.common.config.ConfigValue;
 
 import com.mongodb.ConnectionString;
 
+import com.mongodb.kafka.connect.WBAMongoSinkConnector;
 import com.mongodb.kafka.connect.util.Validators;
 
 public class MongoSinkConfig extends AbstractConfig {
 
-  public static final String TOPICS_CONFIG = MongoSinkConnector.TOPICS_CONFIG;
+  public static final String TOPICS_CONFIG = WBAMongoSinkConnector.TOPICS_CONFIG;
   private static final String TOPICS_DOC =
       "A list of kafka topics for the sink connector, separated by commas";
   public static final String TOPICS_DEFAULT = "";

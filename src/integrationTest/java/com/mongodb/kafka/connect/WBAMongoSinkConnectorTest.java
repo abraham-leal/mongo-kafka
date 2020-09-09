@@ -49,135 +49,152 @@ import com.mongodb.kafka.connect.avro.TweetMsg;
 import com.mongodb.kafka.connect.mongodb.MongoKafkaTestCase;
 
 class WBAMongoSinkConnectorTest extends MongoKafkaTestCase {
-    private static final Random RANDOM = new Random();
+  private static final Random RANDOM = new Random();
 
-    @Test
-    @DisplayName("Ensure sink connect saves data to MongoDB")
-    void testSinkSavesAvroDataToMongoDB() {
-        String topicName = getTopicName();
-        KAFKA.createTopic(topicName);
-        addSinkConnector(topicName);
+  @Test
+  @DisplayName("Ensure sink connect saves data to MongoDB")
+  void testSinkSavesAvroDataToMongoDB() {
+    String topicName = getTopicName();
+    KAFKA.createTopic(topicName);
+    addSinkConnector(topicName);
 
-        assertProducesMessages(topicName, getCollectionName());
-    }
+    assertProducesMessages(topicName, getCollectionName());
+  }
 
-    @Test
-    @DisplayName("Ensure sink saves data using multiple tasks and a single partition")
-    void testSinkSavesUsingMultipleTasksWithASinglePartition() {
-        String topicName = getTopicName();
-        KAFKA.createTopic(topicName, 3, 1);
+  @Test
+  @DisplayName("Ensure sink saves data using multiple tasks and a single partition")
+  void testSinkSavesUsingMultipleTasksWithASinglePartition() {
+    String topicName = getTopicName();
+    KAFKA.createTopic(topicName, 3, 1);
 
-        Properties sinkProperties = new Properties();
-        sinkProperties.put(TOPICS_CONFIG, topicName);
-        sinkProperties.put("tasks.max", "5");
-        addSinkConnector(sinkProperties);
+    Properties sinkProperties = new Properties();
+    sinkProperties.put(TOPICS_CONFIG, topicName);
+    sinkProperties.put("tasks.max", "5");
+    addSinkConnector(sinkProperties);
 
-        assertProducesMessages(topicName, getCollectionName());
-        assertCollectionOrder(true);
-    }
+    assertProducesMessages(topicName, getCollectionName());
+    assertCollectionOrder(true);
+  }
 
-    @Test
-    @DisplayName("Ensure sink saves data using a single task and multiple partitions")
-    void testSinkSavesUsingASingleTasksWithMultiplePartitions() {
-        String topicName = getTopicName();
-        int partitionCount = 3;
-        KAFKA.createTopic(topicName, partitionCount, 1);
+  @Test
+  @DisplayName("Ensure sink saves data using a single task and multiple partitions")
+  void testSinkSavesUsingASingleTasksWithMultiplePartitions() {
+    String topicName = getTopicName();
+    int partitionCount = 3;
+    KAFKA.createTopic(topicName, partitionCount, 1);
 
-        addSinkConnector(topicName);
-        assertProducesMessages(topicName, getCollectionName(), partitionCount);
-        assertCollectionOrder(false);
-    }
+    addSinkConnector(topicName);
+    assertProducesMessages(topicName, getCollectionName(), partitionCount);
+    assertCollectionOrder(false);
+  }
 
-    @Test
-    @DisplayName("Ensure sink saves data using multiple tasks and multiple partitions")
-    void testSinkSavesUsingMultipleTasksWithMultiplePartitions() {
-        String topicName = getTopicName();
-        int partitionCount = 3;
-        KAFKA.createTopic(topicName, partitionCount, 1);
+  @Test
+  @DisplayName("Ensure sink saves data using multiple tasks and multiple partitions")
+  void testSinkSavesUsingMultipleTasksWithMultiplePartitions() {
+    String topicName = getTopicName();
+    int partitionCount = 3;
+    KAFKA.createTopic(topicName, partitionCount, 1);
 
-        Properties sinkProperties = new Properties();
-        sinkProperties.put(TOPICS_CONFIG, topicName);
-        sinkProperties.put("tasks.max", "5");
-        addSinkConnector(sinkProperties);
+    Properties sinkProperties = new Properties();
+    sinkProperties.put(TOPICS_CONFIG, topicName);
+    sinkProperties.put("tasks.max", "5");
+    addSinkConnector(sinkProperties);
 
-        assertProducesMessages(topicName, getCollectionName(), partitionCount);
-        assertCollectionOrder(false);
-    }
+    assertProducesMessages(topicName, getCollectionName(), partitionCount);
+    assertCollectionOrder(false);
+  }
 
-    @Test
-    @DisplayName("Ensure sink saves data to multiple collections using multiple tasks and multiple partitions")
-    void testSinkSavesToMultipleCollectionsUsingMultipleTasksWithMultiplePartitions() {
-        String topicName1 = getTopicName();
-        String topicName2 = getTopicName();
-        String collectionName1 = topicName1 + "Collection";
-        String collectionName2 = topicName2 + "Collection";
+  @Test
+  @DisplayName(
+      "Ensure sink saves data to multiple collections using multiple tasks and multiple partitions")
+  void testSinkSavesToMultipleCollectionsUsingMultipleTasksWithMultiplePartitions() {
+    String topicName1 = getTopicName();
+    String topicName2 = getTopicName();
+    String collectionName1 = topicName1 + "Collection";
+    String collectionName2 = topicName2 + "Collection";
 
-        int partitionCount = 3;
-        KAFKA.createTopic(topicName1);
-        KAFKA.createTopic(topicName2, partitionCount, 1);
+    int partitionCount = 3;
+    KAFKA.createTopic(topicName1);
+    KAFKA.createTopic(topicName2, partitionCount, 1);
 
-        Properties sinkProperties = new Properties();
-        sinkProperties.put(TOPICS_CONFIG, format("%s,%s", topicName1, topicName2));
-        sinkProperties.put(format(TOPIC_OVERRIDE_CONFIG, topicName1, COLLECTION_CONFIG), collectionName1);
-        sinkProperties.put(format(TOPIC_OVERRIDE_CONFIG, topicName2, COLLECTION_CONFIG), collectionName2);
-        sinkProperties.put("tasks.max", "5");
-        addSinkConnector(sinkProperties);
+    Properties sinkProperties = new Properties();
+    sinkProperties.put(TOPICS_CONFIG, format("%s,%s", topicName1, topicName2));
+    sinkProperties.put(
+        format(TOPIC_OVERRIDE_CONFIG, topicName1, COLLECTION_CONFIG), collectionName1);
+    sinkProperties.put(
+        format(TOPIC_OVERRIDE_CONFIG, topicName2, COLLECTION_CONFIG), collectionName2);
+    sinkProperties.put("tasks.max", "5");
+    addSinkConnector(sinkProperties);
 
-        assertProducesMessages(topicName1, collectionName1);
-        assertProducesMessages(topicName2, collectionName2, partitionCount);
-        assertCollectionOrder(collectionName1, true);
-        assertCollectionOrder(collectionName2, false);
-    }
+    assertProducesMessages(topicName1, collectionName1);
+    assertProducesMessages(topicName2, collectionName2, partitionCount);
+    assertCollectionOrder(collectionName1, true);
+    assertCollectionOrder(collectionName2, false);
+  }
 
-    @Test
-    @DisplayName("Ensure sink connect saves data to MongoDB when using regex")
-    void testSinkSavesAvroDataToMongoDBWhenUsingRegex() {
-        String topicName1 = "topic-regex-101";
-        String topicName2 = "topic-regex-202";
+  @Test
+  @DisplayName("Ensure sink connect saves data to MongoDB when using regex")
+  void testSinkSavesAvroDataToMongoDBWhenUsingRegex() {
+    String topicName1 = "topic-regex-101";
+    String topicName2 = "topic-regex-202";
 
-        String collectionName1 = "regexColl1";
-        String collectionName2 = "regexColl2";
+    String collectionName1 = "regexColl1";
+    String collectionName2 = "regexColl2";
 
-        KAFKA.createTopic(topicName1);
-        KAFKA.createTopic(topicName2);
+    KAFKA.createTopic(topicName1);
+    KAFKA.createTopic(topicName2);
 
-        Properties sinkProperties = new Properties();
-        sinkProperties.put(TOPICS_REGEX_CONFIG, "topic\\-regex\\-(.*)");
-        sinkProperties.put(format(TOPIC_OVERRIDE_CONFIG, topicName1, COLLECTION_CONFIG), collectionName1);
-        sinkProperties.put(format(TOPIC_OVERRIDE_CONFIG, topicName2, COLLECTION_CONFIG), collectionName2);
-        addSinkConnector(sinkProperties);
+    Properties sinkProperties = new Properties();
+    sinkProperties.put(TOPICS_REGEX_CONFIG, "topic\\-regex\\-(.*)");
+    sinkProperties.put(
+        format(TOPIC_OVERRIDE_CONFIG, topicName1, COLLECTION_CONFIG), collectionName1);
+    sinkProperties.put(
+        format(TOPIC_OVERRIDE_CONFIG, topicName2, COLLECTION_CONFIG), collectionName2);
+    addSinkConnector(sinkProperties);
 
-        assertProducesMessages(topicName1, collectionName1);
-        assertProducesMessages(topicName2, collectionName2);
-    }
+    assertProducesMessages(topicName1, collectionName1);
+    assertProducesMessages(topicName2, collectionName2);
+  }
 
-    @Test
-    @DisplayName("Ensure sink can survive a restart")
-    void testSinkSurvivesARestart() {
-        String topicName = getTopicName();
-        KAFKA.createTopic(topicName);
-        addSinkConnector(topicName);
-        assertProducesMessages(topicName, getCollectionName(), true);
-    }
+  @Test
+  @DisplayName("Ensure sink can survive a restart")
+  void testSinkSurvivesARestart() {
+    String topicName = getTopicName();
+    KAFKA.createTopic(topicName);
+    addSinkConnector(topicName);
+    assertProducesMessages(topicName, getCollectionName(), true);
+  }
 
-    private void assertProducesMessages(final String topicName, final String collectionName) {
-        assertProducesMessages(topicName, collectionName, false);
-    }
+  private void assertProducesMessages(final String topicName, final String collectionName) {
+    assertProducesMessages(topicName, collectionName, false);
+  }
 
-    private void assertProducesMessages(final String topicName, final String collectionName, final boolean restartConnector) {
-        assertProducesMessages(topicName, collectionName, restartConnector, 1);
-    }
+  private void assertProducesMessages(
+      final String topicName, final String collectionName, final boolean restartConnector) {
+    assertProducesMessages(topicName, collectionName, restartConnector, 1);
+  }
 
-    private void assertProducesMessages(final String topicName, final String collectionName, final int partitionCount) {
-        assertProducesMessages(topicName, collectionName, false, partitionCount);
-    }
+  private void assertProducesMessages(
+      final String topicName, final String collectionName, final int partitionCount) {
+    assertProducesMessages(topicName, collectionName, false, partitionCount);
+  }
 
-    private void assertProducesMessages(final String topicName, final String collectionName, final boolean restartConnector,
-                                        final int partitionCount) {
+  private void assertProducesMessages(
+      final String topicName,
+      final String collectionName,
+      final boolean restartConnector,
+      final int partitionCount) {
 
-        List<TweetMsg> tweets = IntStream.range(0, 100).mapToObj(i ->
-                TweetMsg.newBuilder().setId$1(i)
-                        .setText(format("test tweet %s end2end testing apache kafka <-> mongodb sink connector is fun!", i))
+    List<TweetMsg> tweets =
+        IntStream.range(0, 100)
+            .mapToObj(
+                i ->
+                    TweetMsg.newBuilder()
+                        .setId$1(i)
+                        .setText(
+                            format(
+                                "test tweet %s end2end testing apache kafka <-> mongodb sink connector is fun!",
+                                i))
                         .setHashtags(asList(format("t%s", i), "kafka", "mongodb", "testing"))
                         .build())
             .collect(Collectors.toList());

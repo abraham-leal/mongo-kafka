@@ -33,8 +33,8 @@ import com.mongodb.kafka.connect.source.MongoSourceConfig;
 import com.mongodb.kafka.connect.source.MongoSourceTask;
 
 public class WBAMongoSourceConnector extends SourceConnector {
-    private static final List<String> REQUIRED_SOURCE_ACTIONS = asList("changeStream", "find");
-    private Map<String, String> settings;
+  private static final List<String> REQUIRED_SOURCE_ACTIONS = asList("changeStream", "find");
+  private Map<String, String> settings;
 
   @Override
   public void start(final Map<String, String> props) {
