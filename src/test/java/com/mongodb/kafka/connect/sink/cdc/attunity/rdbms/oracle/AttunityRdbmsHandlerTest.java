@@ -50,10 +50,10 @@ import com.mongodb.kafka.connect.sink.converter.SinkDocument;
 
 @RunWith(JUnitPlatform.class)
 class AttunityRdbmsHandlerTest {
-  private static final AttunityRdbmsHandler RDBMS_HANDLER_DEFAULT_MAPPING =
-      new AttunityRdbmsHandler(createTopicConfig());
-  private static final AttunityRdbmsHandler RDBMS_HANDLER_EMPTY_MAPPING =
-      new AttunityRdbmsHandler(createTopicConfig(), emptyMap());
+  private static final AttunityRdbmsHandlerWBA RDBMS_HANDLER_DEFAULT_MAPPING =
+      new AttunityRdbmsHandlerWBA(createTopicConfig());
+  private static final AttunityRdbmsHandlerWBA RDBMS_HANDLER_EMPTY_MAPPING =
+      new AttunityRdbmsHandlerWBA(createTopicConfig(), emptyMap());
 
   @Test
   @DisplayName("verify existing default config from base class")
@@ -288,7 +288,8 @@ class AttunityRdbmsHandlerTest {
     String customConfig =
         "{\"key.extraction.enabled\" : \"true\", \"key.projection.list\" : \"foo\"}";
     String expectedKey = "{\"foo\": \"bar\"}";
-    AttunityRdbmsHandler customMapping = new AttunityRdbmsHandler(createTopicConfig(customConfig));
+    AttunityRdbmsHandlerWBA customMapping =
+        new AttunityRdbmsHandlerWBA(createTopicConfig(customConfig));
 
     return Stream.of(
         dynamicTest(

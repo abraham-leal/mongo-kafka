@@ -66,19 +66,19 @@ import com.mongodb.client.model.DeleteOneModel;
 import com.mongodb.client.model.ReplaceOneModel;
 import com.mongodb.client.model.WriteModel;
 
-import com.mongodb.kafka.connect.sink.cdc.debezium.rdbms.RdbmsHandler;
+import com.mongodb.kafka.connect.sink.cdc.debezium.rdbms.RdbmsHandlerWBA;
 import com.mongodb.kafka.connect.sink.processor.id.strategy.BsonOidStrategy;
 import com.mongodb.kafka.connect.sink.processor.id.strategy.FullKeyStrategy;
 import com.mongodb.kafka.connect.sink.writemodel.strategy.ReplaceOneDefaultStrategy;
 
 @SuppressWarnings("unchecked")
 @RunWith(JUnitPlatform.class)
-class MongoSinkTaskTest {
+class WBAMongoSinkTaskTest {
 
   @Test
   @DisplayName("test create sink record batches per topic with default topic and no batching")
   void testCreateSinkRecordBatchesPerTopicWithDefaultTopicAndNoBatching() {
-    MongoSinkTask sinkTask = new MongoSinkTask();
+    WBAMongoSinkTask sinkTask = new WBAMongoSinkTask();
     TopicSettingsAndResults settings = new TopicSettingsAndResults(TEST_TOPIC, 50, 0);
 
     sinkTask.start(createConfigMap());
@@ -110,7 +110,7 @@ class MongoSinkTaskTest {
   @Test
   @DisplayName("test create sink record batches per topic with no batching")
   void testCreateSinkRecordBatchesPerTopicWithNoDefaultTopicAndNoBatching() {
-    MongoSinkTask sinkTask = new MongoSinkTask();
+    WBAMongoSinkTask sinkTask = new WBAMongoSinkTask();
 
     String topicName = "KTopic1";
     TopicSettingsAndResults settings = new TopicSettingsAndResults(topicName, 50, 0);
@@ -149,7 +149,7 @@ class MongoSinkTaskTest {
   Collection<DynamicTest>
       testCreateSinkRecordBatchesPerTopicWithMultipleTopicAndDifferentBatchSizes() {
     List<DynamicTest> tests = new ArrayList<>();
-    MongoSinkTask sinkTask = new MongoSinkTask();
+    WBAMongoSinkTask sinkTask = new WBAMongoSinkTask();
 
     List<TopicSettingsAndResults> settings =
         asList(
@@ -213,7 +213,7 @@ class MongoSinkTaskTest {
   @DisplayName("test with default config and no sink records")
   void testBuildWriteModelDefaultConfigSinkRecordsAbsent() {
     List<? extends WriteModel> writeModelList =
-        new MongoSinkTask().buildWriteModel(createTopicConfig(), emptyList());
+        new WBAMongoSinkTask().buildWriteModel(createTopicConfig(), emptyList());
 
     assertNotNull(writeModelList, "WriteModel list was null");
     assertEquals(emptyList(), writeModelList, "WriteModel list mismatch");
@@ -222,7 +222,7 @@ class MongoSinkTaskTest {
   @Test
   @DisplayName("test ReplaceOneDefaultStrategy with custom config and sink records having values")
   void testBuildReplaceOneModelsCustomConfigSinkRecordsWithValuePresent() {
-    MongoSinkTask sinkTask = new MongoSinkTask();
+    WBAMongoSinkTask sinkTask = new WBAMongoSinkTask();
     MongoSinkTopicConfig cfg =
         createTopicConfig(
             format(
@@ -274,7 +274,7 @@ class MongoSinkTaskTest {
   @DisplayName(
       "test ReplaceOneDefaultStrategy with custom config and sink records having keys & values")
   void testBuildReplaceOneModelsCustomConfigSinkRecordsWithKeyAndValuePresent() {
-    MongoSinkTask sinkTask = new MongoSinkTask();
+    WBAMongoSinkTask sinkTask = new WBAMongoSinkTask();
     MongoSinkTopicConfig cfg =
         createTopicConfig(
             format(
@@ -321,7 +321,7 @@ class MongoSinkTaskTest {
   @DisplayName(
       "test DeleteOneDefaultStrategy with custom config and sink records with keys and null values")
   void testBuildDeleteOneModelsCustomConfigSinkRecordsWithKeyAndNullValuePresent() {
-    MongoSinkTask sinkTask = new MongoSinkTask();
+    WBAMongoSinkTask sinkTask = new WBAMongoSinkTask();
     MongoSinkTopicConfig cfg =
         createTopicConfig(
             format(
@@ -387,7 +387,7 @@ class MongoSinkTaskTest {
                         i - 1234))
             .collect(Collectors.toList());
 
-    MongoSinkTask sinkTask = new MongoSinkTask();
+    WBAMongoSinkTask sinkTask = new WBAMongoSinkTask();
     String topic = "dbserver1.catalogA.tableB";
     MongoSinkTopicConfig cfg =
         SinkTestHelper.createSinkConfig(
@@ -396,7 +396,7 @@ class MongoSinkTaskTest {
                     TOPICS_CONFIG,
                     topic,
                     CHANGE_DATA_CAPTURE_HANDLER_CONFIG,
-                    RdbmsHandler.class.getName()))
+                    RdbmsHandlerWBA.class.getName()))
             .getMongoSinkTopicConfig(topic);
     List<? extends WriteModel> writeModels = sinkTask.buildWriteModelCDC(cfg, sinkRecords);
 
@@ -469,7 +469,7 @@ class MongoSinkTaskTest {
                         i - 1234))
             .collect(Collectors.toList());
 
-    MongoSinkTask sinkTask = new MongoSinkTask();
+    WBAMongoSinkTask sinkTask = new WBAMongoSinkTask();
     MongoSinkTopicConfig cfg =
         SinkTestHelper.createSinkConfig(
                 format(
@@ -477,7 +477,7 @@ class MongoSinkTaskTest {
                     TOPICS_CONFIG,
                     topic,
                     CHANGE_DATA_CAPTURE_HANDLER_CONFIG,
-                    RdbmsHandler.class.getName()))
+                    RdbmsHandlerWBA.class.getName()))
             .getMongoSinkTopicConfig(topic);
     List<? extends WriteModel> writeModels = sinkTask.buildWriteModelCDC(cfg, sinkRecords);
 
@@ -544,7 +544,7 @@ class MongoSinkTaskTest {
                         i - 1234))
             .collect(Collectors.toList());
 
-    MongoSinkTask sinkTask = new MongoSinkTask();
+    WBAMongoSinkTask sinkTask = new WBAMongoSinkTask();
     MongoSinkTopicConfig cfg =
         SinkTestHelper.createSinkConfig(
                 format(
@@ -552,7 +552,7 @@ class MongoSinkTaskTest {
                     TOPICS_CONFIG,
                     topic,
                     CHANGE_DATA_CAPTURE_HANDLER_CONFIG,
-                    RdbmsHandler.class.getName()))
+                    RdbmsHandlerWBA.class.getName()))
             .getMongoSinkTopicConfig(topic);
     List<? extends WriteModel> writeModels = sinkTask.buildWriteModelCDC(cfg, sinkRecords);
     assertNotNull(writeModels, "WriteModel list was null");

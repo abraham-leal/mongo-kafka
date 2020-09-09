@@ -33,11 +33,11 @@ import com.mongodb.client.model.WriteModel;
 
 import com.mongodb.kafka.connect.sink.MongoSinkTopicConfig;
 import com.mongodb.kafka.connect.sink.cdc.CdcOperation;
-import com.mongodb.kafka.connect.sink.cdc.debezium.DebeziumCdcHandler;
+import com.mongodb.kafka.connect.sink.cdc.debezium.DebeziumWBACdcHandler;
 import com.mongodb.kafka.connect.sink.cdc.debezium.OperationType;
 import com.mongodb.kafka.connect.sink.converter.SinkDocument;
 
-public class MongoDbHandler extends DebeziumCdcHandler {
+public class MongoDbHandlerWBA extends DebeziumWBACdcHandler {
   static final String ID_FIELD = "_id";
   static final String JSON_ID_FIELD = "id";
   private static final Map<OperationType, CdcOperation> DEFAULT_OPERATIONS =
@@ -49,13 +49,13 @@ public class MongoDbHandler extends DebeziumCdcHandler {
           put(OperationType.DELETE, new MongoDbDelete());
         }
       };
-  private static final Logger LOGGER = LoggerFactory.getLogger(MongoDbHandler.class);
+  private static final Logger LOGGER = LoggerFactory.getLogger(MongoDbHandlerWBA.class);
 
-  public MongoDbHandler(final MongoSinkTopicConfig config) {
+  public MongoDbHandlerWBA(final MongoSinkTopicConfig config) {
     this(config, DEFAULT_OPERATIONS);
   }
 
-  public MongoDbHandler(
+  public MongoDbHandlerWBA(
       final MongoSinkTopicConfig config, final Map<OperationType, CdcOperation> operations) {
     super(config);
     registerOperations(operations);

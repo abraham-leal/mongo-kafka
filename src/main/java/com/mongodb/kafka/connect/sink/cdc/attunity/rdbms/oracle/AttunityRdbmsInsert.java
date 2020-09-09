@@ -54,9 +54,9 @@ public class AttunityRdbmsInsert implements CdcOperation {
 
     try {
       BsonDocument filterDoc =
-          AttunityRdbmsHandler.generateFilterDoc(keyDoc, valueDoc, OperationType.CREATE);
+          AttunityRdbmsHandlerWBA.generateFilterDoc(keyDoc, valueDoc, OperationType.CREATE);
       BsonDocument upsertDoc =
-          AttunityRdbmsHandler.generateUpsertOrReplaceDoc(keyDoc, valueDoc, filterDoc);
+          AttunityRdbmsHandlerWBA.generateUpsertOrReplaceDoc(keyDoc, valueDoc, filterDoc);
       return new ReplaceOneModel<>(filterDoc, upsertDoc, REPLACE_OPTIONS);
     } catch (Exception exc) {
       throw new DataException(exc);

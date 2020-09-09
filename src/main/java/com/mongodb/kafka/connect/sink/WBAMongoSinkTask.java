@@ -65,8 +65,8 @@ import com.mongodb.kafka.connect.sink.converter.SinkDocument;
 import com.mongodb.kafka.connect.sink.processor.PostProcessors;
 import com.mongodb.kafka.connect.sink.writemodel.strategy.WriteModelStrategy;
 
-public class MongoSinkTask extends SinkTask {
-  private static final Logger LOGGER = LoggerFactory.getLogger(MongoSinkTask.class);
+public class WBAMongoSinkTask extends SinkTask {
+  private static final Logger LOGGER = LoggerFactory.getLogger(WBAMongoSinkTask.class);
   private static final String CONNECTOR_TYPE = "sink";
   private static final BulkWriteOptions BULK_WRITE_OPTIONS = new BulkWriteOptions();
   private KafkaProducer<String, String> dlqProducer;

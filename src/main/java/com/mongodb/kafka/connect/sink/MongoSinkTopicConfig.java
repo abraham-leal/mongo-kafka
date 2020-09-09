@@ -43,7 +43,7 @@ import org.apache.kafka.common.config.ConfigValue;
 
 import com.mongodb.MongoNamespace;
 
-import com.mongodb.kafka.connect.sink.cdc.CdcHandler;
+import com.mongodb.kafka.connect.sink.cdc.WBACdcHandler;
 import com.mongodb.kafka.connect.sink.processor.PostProcessors;
 import com.mongodb.kafka.connect.sink.processor.id.strategy.FullKeyStrategy;
 import com.mongodb.kafka.connect.sink.processor.id.strategy.IdStrategy;
@@ -264,7 +264,7 @@ public class MongoSinkTopicConfig extends AbstractConfig {
   private WriteModelStrategy writeModelStrategy;
   private WriteModelStrategy deleteOneWriteModelStrategy;
   private RateLimitSettings rateLimitSettings;
-  private CdcHandler cdcHandler;
+  private WBACdcHandler cdcHandler;
 
   MongoSinkTopicConfig(final String topic, final Map<String, String> originals) {
     this(topic, originals, true);
@@ -381,7 +381,7 @@ public class MongoSinkTopicConfig extends AbstractConfig {
     return Optional.of(deleteOneWriteModelStrategy);
   }
 
-  Optional<CdcHandler> getCdcHandler() {
+  Optional<WBACdcHandler> getCdcHandler() {
     String cdcHandler = getString(CHANGE_DATA_CAPTURE_HANDLER_CONFIG);
     if (cdcHandler.isEmpty()) {
       return Optional.empty();
@@ -392,9 +392,9 @@ public class MongoSinkTopicConfig extends AbstractConfig {
           createInstance(
               CHANGE_DATA_CAPTURE_HANDLER_CONFIG,
               cdcHandler,
-              CdcHandler.class,
+              WBACdcHandler.class,
               () ->
-                  (CdcHandler)
+                  (WBACdcHandler)
                       Class.forName(cdcHandler)
                           .getConstructor(MongoSinkTopicConfig.class)
                           .newInstance(this));

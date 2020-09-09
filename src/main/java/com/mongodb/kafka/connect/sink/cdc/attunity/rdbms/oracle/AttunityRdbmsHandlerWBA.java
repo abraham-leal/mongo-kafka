@@ -40,14 +40,14 @@ import com.mongodb.kafka.connect.sink.cdc.CdcOperation;
 import com.mongodb.kafka.connect.sink.cdc.debezium.OperationType;
 import com.mongodb.kafka.connect.sink.converter.SinkDocument;
 
-public class AttunityRdbmsHandler extends AttunityCdcHandler {
+public class AttunityRdbmsHandlerWBA extends AttunityWBACdcHandler {
   static final String ID_FIELD = "_id";
   private static final String JSON_DOC_BEFORE_FIELD = "beforeData";
   private static final String JSON_DOC_AFTER_FIELD = "data";
   private static final String JSON_DOC_WRAPPER_FIELD = "message";
   private boolean keyExtractionEnabled = false;
   private java.util.List<String> fieldsToExtract = new java.util.ArrayList<>();
-  private static final Logger LOGGER = LoggerFactory.getLogger(AttunityRdbmsHandler.class);
+  private static final Logger LOGGER = LoggerFactory.getLogger(AttunityRdbmsHandlerWBA.class);
   private static final java.util.Map<
           com.mongodb.kafka.connect.sink.cdc.debezium.OperationType,
           com.mongodb.kafka.connect.sink.cdc.CdcOperation>
@@ -63,11 +63,11 @@ public class AttunityRdbmsHandler extends AttunityCdcHandler {
             }
           };
 
-  public AttunityRdbmsHandler(final MongoSinkTopicConfig config) {
+  public AttunityRdbmsHandlerWBA(final MongoSinkTopicConfig config) {
     this(config, DEFAULT_OPERATIONS);
   }
 
-  public AttunityRdbmsHandler(
+  public AttunityRdbmsHandlerWBA(
       final MongoSinkTopicConfig config, final Map<OperationType, CdcOperation> operations) {
     super(config);
     keyExtractionEnabled =

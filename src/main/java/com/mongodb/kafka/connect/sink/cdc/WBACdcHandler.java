@@ -29,11 +29,11 @@ import com.mongodb.client.model.WriteModel;
 import com.mongodb.kafka.connect.sink.MongoSinkTopicConfig;
 import com.mongodb.kafka.connect.sink.converter.SinkDocument;
 
-public abstract class CdcHandler {
+public abstract class WBACdcHandler {
 
   private final MongoSinkTopicConfig config;
 
-  public CdcHandler(final MongoSinkTopicConfig config) {
+  public WBACdcHandler(final MongoSinkTopicConfig config) {
     this.config = config;
   }
 

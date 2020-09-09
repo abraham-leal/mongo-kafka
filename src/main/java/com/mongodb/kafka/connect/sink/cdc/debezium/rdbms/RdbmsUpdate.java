@@ -50,9 +50,9 @@ public class RdbmsUpdate implements CdcOperation {
 
     try {
       BsonDocument filterDoc =
-          RdbmsHandler.generateFilterDoc(keyDoc, valueDoc, OperationType.UPDATE);
+          RdbmsHandlerWBA.generateFilterDoc(keyDoc, valueDoc, OperationType.UPDATE);
       BsonDocument replaceDoc =
-          RdbmsHandler.generateUpsertOrReplaceDoc(keyDoc, valueDoc, filterDoc);
+          RdbmsHandlerWBA.generateUpsertOrReplaceDoc(keyDoc, valueDoc, filterDoc);
       return new ReplaceOneModel<>(filterDoc, replaceDoc, REPLACE_OPTIONS);
     } catch (Exception exc) {
       throw new DataException(exc);

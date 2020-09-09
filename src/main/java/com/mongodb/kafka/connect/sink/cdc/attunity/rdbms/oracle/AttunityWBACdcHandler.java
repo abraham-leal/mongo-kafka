@@ -29,18 +29,18 @@ import org.apache.kafka.connect.errors.DataException;
 import org.bson.BsonDocument;
 
 import com.mongodb.kafka.connect.sink.MongoSinkTopicConfig;
-import com.mongodb.kafka.connect.sink.cdc.CdcHandler;
 import com.mongodb.kafka.connect.sink.cdc.CdcOperation;
+import com.mongodb.kafka.connect.sink.cdc.WBACdcHandler;
 import com.mongodb.kafka.connect.sink.cdc.debezium.OperationType;
 
-public abstract class AttunityCdcHandler extends CdcHandler {
+public abstract class AttunityWBACdcHandler extends WBACdcHandler {
   private static final String OPERATION_TYPE_FIELD_PATH = "operation";
   private static final String OPERATION_TYPE_WRAPPER_PATH = "headers";
   private static final String OPERATION_TYPE_TOPLEVEL_WRAPPER_PATH = "message";
 
   private final Map<OperationType, CdcOperation> operations = new HashMap<>();
 
-  public AttunityCdcHandler(final MongoSinkTopicConfig config) {
+  public AttunityWBACdcHandler(final MongoSinkTopicConfig config) {
     super(config);
   }
 

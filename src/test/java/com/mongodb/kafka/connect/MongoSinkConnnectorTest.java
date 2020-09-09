@@ -31,7 +31,7 @@ import org.junit.platform.runner.JUnitPlatform;
 import org.junit.runner.RunWith;
 
 import com.mongodb.kafka.connect.sink.MongoSinkConfig;
-import com.mongodb.kafka.connect.sink.MongoSinkTask;
+import com.mongodb.kafka.connect.sink.WBAMongoSinkTask;
 
 @RunWith(JUnitPlatform.class)
 class MongoSinkConnnectorTest {
@@ -49,7 +49,7 @@ class MongoSinkConnnectorTest {
   void testTaskClass() {
     WBAMongoSinkConnector sinkConnector = new WBAMongoSinkConnector();
 
-    assertEquals(MongoSinkTask.class, sinkConnector.taskClass());
+    assertEquals(WBAMongoSinkTask.class, sinkConnector.taskClass());
   }
 
   @Test

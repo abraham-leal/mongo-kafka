@@ -49,10 +49,10 @@ import com.mongodb.kafka.connect.sink.converter.SinkDocument;
 
 @RunWith(JUnitPlatform.class)
 class RdbmsHandlerTest {
-  private static final RdbmsHandler RDBMS_HANDLER_DEFAULT_MAPPING =
-      new RdbmsHandler(createTopicConfig());
-  private static final RdbmsHandler RDBMS_HANDLER_EMPTY_MAPPING =
-      new RdbmsHandler(createTopicConfig(), emptyMap());
+  private static final RdbmsHandlerWBA RDBMS_HANDLER_DEFAULT_MAPPING =
+      new RdbmsHandlerWBA(createTopicConfig());
+  private static final RdbmsHandlerWBA RDBMS_HANDLER_EMPTY_MAPPING =
+      new RdbmsHandlerWBA(createTopicConfig(), emptyMap());
 
   @Test
   @DisplayName("verify existing default config from base class")

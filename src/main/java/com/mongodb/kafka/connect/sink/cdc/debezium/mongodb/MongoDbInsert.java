@@ -18,7 +18,7 @@
 
 package com.mongodb.kafka.connect.sink.cdc.debezium.mongodb;
 
-import static com.mongodb.kafka.connect.sink.cdc.debezium.mongodb.MongoDbHandler.ID_FIELD;
+import static com.mongodb.kafka.connect.sink.cdc.debezium.mongodb.MongoDbHandlerWBA.ID_FIELD;
 
 import org.apache.kafka.connect.errors.DataException;
 

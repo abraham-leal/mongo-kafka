@@ -16,27 +16,27 @@
  * Original Work: Apache License, Version 2.0, Copyright 2017 Hans-Peter Grahsl.
  */
 
-package com.mongodb.kafka.connect.sink.cdc.debezium.rdbms.postgres;
+package com.mongodb.kafka.connect.sink.cdc.debezium.rdbms.mysql;
 
 import java.util.Map;
 
 import com.mongodb.kafka.connect.sink.MongoSinkTopicConfig;
 import com.mongodb.kafka.connect.sink.cdc.CdcOperation;
 import com.mongodb.kafka.connect.sink.cdc.debezium.OperationType;
-import com.mongodb.kafka.connect.sink.cdc.debezium.rdbms.RdbmsHandler;
+import com.mongodb.kafka.connect.sink.cdc.debezium.rdbms.RdbmsHandlerWBA;
 
-public class PostgresHandler extends RdbmsHandler {
+public class MysqlHandlerWBA extends RdbmsHandlerWBA {
 
   // NOTE: this class is prepared in case there are
-  // postgres specific differences to be considered
+  // mysql specific differences to be considered
   // and the CDC handling deviates from the standard
   // behaviour as implemented in RdbmsHandler.class
 
-  public PostgresHandler(final MongoSinkTopicConfig config) {
+  public MysqlHandlerWBA(final MongoSinkTopicConfig config) {
     super(config);
   }
 
-  public PostgresHandler(
+  public MysqlHandlerWBA(
       final MongoSinkTopicConfig config, final Map<OperationType, CdcOperation> operations) {
     super(config, operations);
   }

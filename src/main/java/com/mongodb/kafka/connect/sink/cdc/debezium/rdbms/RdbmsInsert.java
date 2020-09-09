@@ -50,8 +50,9 @@ public class RdbmsInsert implements CdcOperation {
 
     try {
       BsonDocument filterDoc =
-          RdbmsHandler.generateFilterDoc(keyDoc, valueDoc, OperationType.CREATE);
-      BsonDocument upsertDoc = RdbmsHandler.generateUpsertOrReplaceDoc(keyDoc, valueDoc, filterDoc);
+          RdbmsHandlerWBA.generateFilterDoc(keyDoc, valueDoc, OperationType.CREATE);
+      BsonDocument upsertDoc =
+          RdbmsHandlerWBA.generateUpsertOrReplaceDoc(keyDoc, valueDoc, filterDoc);
       return new ReplaceOneModel<>(filterDoc, upsertDoc, REPLACE_OPTIONS);
     } catch (Exception exc) {
       throw new DataException(exc);

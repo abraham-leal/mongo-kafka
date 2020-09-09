@@ -54,10 +54,10 @@ import com.mongodb.kafka.connect.sink.converter.SinkDocument;
 @RunWith(JUnitPlatform.class)
 class MongoDbHandlerTest {
 
-  private static final MongoDbHandler HANDLER_DEFAULT_MAPPING =
-      new MongoDbHandler(createTopicConfig());
-  private static final MongoDbHandler HANDLER_EMPTY_MAPPING =
-      new MongoDbHandler(createTopicConfig(), emptyMap());
+  private static final MongoDbHandlerWBA HANDLER_DEFAULT_MAPPING =
+      new MongoDbHandlerWBA(createTopicConfig());
+  private static final MongoDbHandlerWBA HANDLER_EMPTY_MAPPING =
+      new MongoDbHandlerWBA(createTopicConfig(), emptyMap());
 
   @Test
   @DisplayName("verify existing default config from base class")

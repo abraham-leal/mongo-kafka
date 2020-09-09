@@ -26,15 +26,15 @@ import org.apache.kafka.connect.errors.DataException;
 import org.bson.BsonDocument;
 
 import com.mongodb.kafka.connect.sink.MongoSinkTopicConfig;
-import com.mongodb.kafka.connect.sink.cdc.CdcHandler;
 import com.mongodb.kafka.connect.sink.cdc.CdcOperation;
+import com.mongodb.kafka.connect.sink.cdc.WBACdcHandler;
 
-public abstract class DebeziumCdcHandler extends CdcHandler {
+public abstract class DebeziumWBACdcHandler extends WBACdcHandler {
   private static final String OPERATION_TYPE_FIELD_PATH = "op";
 
   private final Map<OperationType, CdcOperation> operations = new HashMap<>();
 
-  public DebeziumCdcHandler(final MongoSinkTopicConfig config) {
+  public DebeziumWBACdcHandler(final MongoSinkTopicConfig config) {
     super(config);
   }
 

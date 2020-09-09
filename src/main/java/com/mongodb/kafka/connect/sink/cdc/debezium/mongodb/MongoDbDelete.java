@@ -18,8 +18,8 @@
 
 package com.mongodb.kafka.connect.sink.cdc.debezium.mongodb;
 
-import static com.mongodb.kafka.connect.sink.cdc.debezium.mongodb.MongoDbHandler.ID_FIELD;
-import static com.mongodb.kafka.connect.sink.cdc.debezium.mongodb.MongoDbHandler.JSON_ID_FIELD;
+import static com.mongodb.kafka.connect.sink.cdc.debezium.mongodb.MongoDbHandlerWBA.ID_FIELD;
+import static com.mongodb.kafka.connect.sink.cdc.debezium.mongodb.MongoDbHandlerWBA.JSON_ID_FIELD;
 import static java.lang.String.format;
 
 import org.apache.kafka.connect.errors.DataException;

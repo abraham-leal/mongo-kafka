@@ -74,10 +74,10 @@ import org.junit.jupiter.api.TestFactory;
 import org.junit.platform.runner.JUnitPlatform;
 import org.junit.runner.RunWith;
 
-import com.mongodb.kafka.connect.sink.cdc.debezium.mongodb.MongoDbHandler;
-import com.mongodb.kafka.connect.sink.cdc.debezium.rdbms.RdbmsHandler;
-import com.mongodb.kafka.connect.sink.cdc.debezium.rdbms.mysql.MysqlHandler;
-import com.mongodb.kafka.connect.sink.cdc.debezium.rdbms.postgres.PostgresHandler;
+import com.mongodb.kafka.connect.sink.cdc.debezium.mongodb.MongoDbHandlerWBA;
+import com.mongodb.kafka.connect.sink.cdc.debezium.rdbms.RdbmsHandlerWBA;
+import com.mongodb.kafka.connect.sink.cdc.debezium.rdbms.mysql.MysqlHandlerWBA;
+import com.mongodb.kafka.connect.sink.cdc.debezium.rdbms.postgres.PostgresHandlerWBA;
 import com.mongodb.kafka.connect.sink.processor.BlacklistValueProjector;
 import com.mongodb.kafka.connect.sink.processor.DocumentIdAdder;
 import com.mongodb.kafka.connect.sink.processor.PostProcessor;
@@ -412,10 +412,10 @@ class MongoSinkConfigTest {
     String json = "{'%s': '%s'}";
     List<String> cdcHandlers =
         asList(
-            MongoDbHandler.class.getName(),
-            RdbmsHandler.class.getName(),
-            MysqlHandler.class.getName(),
-            PostgresHandler.class.getName());
+            MongoDbHandlerWBA.class.getName(),
+            RdbmsHandlerWBA.class.getName(),
+            MysqlHandlerWBA.class.getName(),
+            PostgresHandlerWBA.class.getName());
     cdcHandlers.forEach(
         s ->
             tests.add(

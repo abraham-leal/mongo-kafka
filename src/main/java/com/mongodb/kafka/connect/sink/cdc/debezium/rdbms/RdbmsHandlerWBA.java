@@ -35,15 +35,15 @@ import com.mongodb.client.model.WriteModel;
 
 import com.mongodb.kafka.connect.sink.MongoSinkTopicConfig;
 import com.mongodb.kafka.connect.sink.cdc.CdcOperation;
-import com.mongodb.kafka.connect.sink.cdc.debezium.DebeziumCdcHandler;
+import com.mongodb.kafka.connect.sink.cdc.debezium.DebeziumWBACdcHandler;
 import com.mongodb.kafka.connect.sink.cdc.debezium.OperationType;
 import com.mongodb.kafka.connect.sink.converter.SinkDocument;
 
-public class RdbmsHandler extends DebeziumCdcHandler {
+public class RdbmsHandlerWBA extends DebeziumWBACdcHandler {
   private static final String ID_FIELD = "_id";
   private static final String JSON_DOC_BEFORE_FIELD = "before";
   private static final String JSON_DOC_AFTER_FIELD = "after";
-  private static final Logger LOGGER = LoggerFactory.getLogger(RdbmsHandler.class);
+  private static final Logger LOGGER = LoggerFactory.getLogger(RdbmsHandlerWBA.class);
   private static final Map<OperationType, CdcOperation> DEFAULT_OPERATIONS =
       new HashMap<OperationType, CdcOperation>() {
         {
@@ -54,11 +54,11 @@ public class RdbmsHandler extends DebeziumCdcHandler {
         }
       };
 
-  public RdbmsHandler(final MongoSinkTopicConfig config) {
+  public RdbmsHandlerWBA(final MongoSinkTopicConfig config) {
     this(config, DEFAULT_OPERATIONS);
   }
 
-  public RdbmsHandler(
+  public RdbmsHandlerWBA(
       final MongoSinkTopicConfig config, final Map<OperationType, CdcOperation> operations) {
     super(config);
     registerOperations(operations);
