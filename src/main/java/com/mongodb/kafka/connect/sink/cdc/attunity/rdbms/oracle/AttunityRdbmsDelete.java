@@ -50,7 +50,7 @@ public class AttunityRdbmsDelete implements CdcOperation {
 
     try {
       BsonDocument filterDoc =
-          AttunityRdbmsHandlerWBA.generateFilterDoc(keyDoc, valueDoc, OperationType.DELETE);
+          AttunityRdbmsHandler.generateFilterDoc(keyDoc, valueDoc, OperationType.DELETE);
       return new DeleteOneModel<>(filterDoc);
     } catch (Exception exc) {
       throw new DataException(exc);

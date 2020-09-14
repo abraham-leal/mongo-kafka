@@ -74,6 +74,7 @@ public class AvroSchemaTest {
     nodeBuilder.field("children", SchemaBuilder.array(nodeBuilder).build());
     nodeBuilder.defaultValue(
         new Struct(nodeBuilder).put("label", "default").put("children", new ArrayList<>()));
+
     Schema expected =
         SchemaBuilder.struct()
             .name("Interop")
@@ -210,5 +211,12 @@ public class AvroSchemaTest {
 
   private Executable createSchema(final String jsonSchema) {
     return () -> AvroSchema.validateJsonSchema(jsonSchema);
+  }
+
+  @Test
+  void testAvroSchemaField() {
+    String testingField =
+        "{\"type\":\"record\",\"name\":\"keySchema\",\"fields\":[{\"name\":\"fullDocument.documentKey\", \"type\":\"string\"}]}";
+    assertThrows(ConnectException.class, createSchema(testingField));
   }
 }
