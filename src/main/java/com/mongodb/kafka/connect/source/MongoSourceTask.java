@@ -20,10 +20,15 @@ import static com.mongodb.kafka.connect.source.MongoSourceConfig.COLLECTION_CONF
 import static com.mongodb.kafka.connect.source.MongoSourceConfig.CONNECTION_URI_CONFIG;
 import static com.mongodb.kafka.connect.source.MongoSourceConfig.COPY_EXISTING_CONFIG;
 import static com.mongodb.kafka.connect.source.MongoSourceConfig.DATABASE_CONFIG;
+import static com.mongodb.kafka.connect.source.MongoSourceConfig.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG;
+import static com.mongodb.kafka.connect.source.MongoSourceConfig.ERRORS_LOG_ENABLE_CONFIG;
+import static com.mongodb.kafka.connect.source.MongoSourceConfig.HEARTBEAT_INTERVAL_MS_CONFIG;
+import static com.mongodb.kafka.connect.source.MongoSourceConfig.HEARTBEAT_TOPIC_NAME_CONFIG;
 import static com.mongodb.kafka.connect.source.MongoSourceConfig.POLL_AWAIT_TIME_MS_CONFIG;
 import static com.mongodb.kafka.connect.source.MongoSourceConfig.POLL_MAX_BATCH_SIZE_CONFIG;
 import static com.mongodb.kafka.connect.source.MongoSourceConfig.PUBLISH_FULL_DOCUMENT_ONLY_CONFIG;
 import static com.mongodb.kafka.connect.source.MongoSourceConfig.TOPIC_PREFIX_CONFIG;
+import static com.mongodb.kafka.connect.source.heartbeat.HeartbeatManager.HEARTBEAT_KEY;
 import static com.mongodb.kafka.connect.source.producer.SchemaAndValueProducers.createKeySchemaAndValueProvider;
 import static com.mongodb.kafka.connect.source.producer.SchemaAndValueProducers.createValueSchemaAndValueProvider;
 import static com.mongodb.kafka.connect.util.ConfigHelper.getMongoDriverInformation;
@@ -31,6 +36,7 @@ import static java.lang.String.format;
 import static java.util.Collections.singletonMap;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -39,6 +45,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.kafka.common.utils.SystemTime;
 import org.apache.kafka.common.utils.Time;
+import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.source.SourceRecord;
@@ -58,12 +65,12 @@ import com.mongodb.client.MongoChangeStreamCursor;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoCollection;
-import com.mongodb.client.MongoCursor;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.changestream.ChangeStreamDocument;
 
 import com.mongodb.kafka.connect.Versions;
 import com.mongodb.kafka.connect.source.MongoSourceConfig.OutputFormat;
+import com.mongodb.kafka.connect.source.heartbeat.HeartbeatManager;
 import com.mongodb.kafka.connect.source.producer.SchemaAndValueProducer;
 
 /**
@@ -98,10 +105,10 @@ import com.mongodb.kafka.connect.source.producer.SchemaAndValueProducer;
  * Restarting the connector during the copying phase, will cause the whole copy process to restart.
  * Restarts after the copying process will resume from the last seen resumeToken.
  */
-public class MongoSourceTask extends SourceTask {
+public final class MongoSourceTask extends SourceTask {
   private static final Logger LOGGER = LoggerFactory.getLogger(MongoSourceTask.class);
   private static final String CONNECTOR_TYPE = "source";
-  private static final String ID_FIELD = "_id";
+  public static final String ID_FIELD = "_id";
   private static final String COPY_KEY = "copy";
   private static final String DB_KEY = "db";
   private static final String COLL_KEY = "coll";
@@ -119,6 +126,7 @@ public class MongoSourceTask extends SourceTask {
   private MongoSourceConfig sourceConfig;
   private Map<String, Object> partitionMap;
   private MongoClient mongoClient;
+  private HeartbeatManager heartbeatManager;
 
   private boolean supportsStartAfter = true;
   private boolean invalidatedCursor = false;
@@ -126,7 +134,7 @@ public class MongoSourceTask extends SourceTask {
   private BsonDocument cachedResult;
   private BsonDocument cachedResumeToken;
 
-  private MongoCursor<? extends BsonDocument> cursor;
+  private MongoChangeStreamCursor<? extends BsonDocument> cursor;
 
   public MongoSourceTask() {
     this(new SystemTime());
@@ -160,7 +168,7 @@ public class MongoSourceTask extends SourceTask {
       copyDataManager = new MongoCopyDataManager(sourceConfig, mongoClient);
       isCopying.set(true);
     } else {
-      cursor = createCursor(sourceConfig, mongoClient);
+      initializeCursorAndHeartbeatManager(time, sourceConfig, mongoClient);
     }
     isRunning.set(true);
     LOGGER.info("Started MongoDB source task");
@@ -192,7 +200,10 @@ public class MongoSourceTask extends SourceTask {
           time.sleep(untilNext);
           continue; // Re-check stop flag before continuing
         }
-        return sourceRecords.isEmpty() ? null : sourceRecords;
+        if (!sourceRecords.isEmpty()) {
+          return sourceRecords;
+        }
+        return heartbeatManager.heartbeat().map(Collections::singletonList).orElse(null);
       } else {
         BsonDocument changeStreamDocument = next.get();
 
@@ -208,7 +219,7 @@ public class MongoSourceTask extends SourceTask {
 
         if (topicName.isEmpty()) {
           LOGGER.warn(
-              "No topic set. Cannot publish the message: {}", changeStreamDocument.toJson());
+              "No topic set. Could not publish the message: {}", changeStreamDocument.toJson());
           return sourceRecords;
         }
 
@@ -231,18 +242,15 @@ public class MongoSourceTask extends SourceTask {
                       ? changeStreamDocument
                       : new BsonDocument(ID_FIELD, changeStreamDocument.get(ID_FIELD));
 
-              SchemaAndValue keySchemaAndValue = keySchemaAndValueProducer.get(keyDocument);
-              SchemaAndValue valueSchemaAndValue = valueSchemaAndValueProducer.get(valueDoc);
-
-              sourceRecords.add(
-                  new SourceRecord(
+              createSourceRecord(
                       partition,
+                      keySchemaAndValueProducer,
+                      valueSchemaAndValueProducer,
                       sourceOffset,
                       topicName,
-                      keySchemaAndValue.schema(),
-                      keySchemaAndValue.value(),
-                      valueSchemaAndValue.schema(),
-                      valueSchemaAndValue.value()));
+                      valueDoc,
+                      keyDocument)
+                  .map(sourceRecords::add);
             });
 
         if (sourceRecords.size() == maxBatchSize) {
@@ -253,6 +261,49 @@ public class MongoSourceTask extends SourceTask {
       }
     }
     return null;
+  }
+
+  private Optional<SourceRecord> createSourceRecord(
+      final Map<String, Object> partition,
+      final SchemaAndValueProducer keySchemaAndValueProducer,
+      final SchemaAndValueProducer valueSchemaAndValueProducer,
+      final Map<String, String> sourceOffset,
+      final String topicName,
+      final BsonDocument valueDoc,
+      final BsonDocument keyDocument) {
+
+    try {
+      SchemaAndValue keySchemaAndValue = keySchemaAndValueProducer.get(keyDocument);
+      SchemaAndValue valueSchemaAndValue = valueSchemaAndValueProducer.get(valueDoc);
+      return Optional.of(
+          new SourceRecord(
+              partition,
+              sourceOffset,
+              topicName,
+              keySchemaAndValue.schema(),
+              keySchemaAndValue.value(),
+              valueSchemaAndValue.schema(),
+              valueSchemaAndValue.value()));
+    } catch (Exception e) {
+      if (sourceConfig.tolerateErrors()) {
+        if (sourceConfig.getBoolean(ERRORS_LOG_ENABLE_CONFIG)) {
+          LOGGER.error(e.getMessage());
+        }
+        if (sourceConfig.getString(ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG).isEmpty()) {
+          return Optional.empty();
+        }
+        return Optional.of(
+            new SourceRecord(
+                partition,
+                sourceOffset,
+                sourceConfig.getString(ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG),
+                Schema.STRING_SCHEMA,
+                keyDocument.toJson(),
+                Schema.STRING_SCHEMA,
+                valueDoc.toJson()));
+      }
+      throw e;
+    }
   }
 
   @Override
@@ -277,13 +328,25 @@ public class MongoSourceTask extends SourceTask {
     invalidatedCursor = false;
   }
 
-  MongoCursor<? extends BsonDocument> createCursor(
+  void initializeCursorAndHeartbeatManager(
+      final Time time, final MongoSourceConfig sourceConfig, final MongoClient mongoClient) {
+    cursor = createCursor(sourceConfig, mongoClient);
+    heartbeatManager =
+        new HeartbeatManager(
+            time,
+            cursor,
+            sourceConfig.getLong(HEARTBEAT_INTERVAL_MS_CONFIG),
+            sourceConfig.getString(HEARTBEAT_TOPIC_NAME_CONFIG),
+            partitionMap);
+  }
+
+  MongoChangeStreamCursor<? extends BsonDocument> createCursor(
       final MongoSourceConfig sourceConfig, final MongoClient mongoClient) {
     LOGGER.debug("Creating a MongoCursor");
     return tryCreateCursor(sourceConfig, mongoClient, getResumeToken(sourceConfig));
   }
 
-  private MongoCursor<? extends BsonDocument> tryCreateCursor(
+  private MongoChangeStreamCursor<? extends BsonDocument> tryCreateCursor(
       final MongoSourceConfig sourceConfig,
       final MongoClient mongoClient,
       final BsonDocument resumeToken) {
@@ -294,12 +357,15 @@ public class MongoSourceTask extends SourceTask {
         LOGGER.info("Resuming the change stream after the previous offset: {}", resumeToken);
         changeStreamIterable.startAfter(resumeToken);
       } else if (resumeToken != null && !invalidatedCursor) {
-        LOGGER.info("Resuming the change stream after the previous offset using resumeAfter.");
+        LOGGER.info(
+            "Resuming the change stream after the previous offset using resumeAfter: {}",
+            resumeToken);
         changeStreamIterable.resumeAfter(resumeToken);
       } else {
         LOGGER.info("New change stream cursor created without offset.");
       }
-      return changeStreamIterable.withDocumentClass(BsonDocument.class).iterator();
+      return (MongoChangeStreamCursor<BsonDocument>)
+          changeStreamIterable.withDocumentClass(BsonDocument.class).cursor();
     } catch (MongoCommandException e) {
       if (resumeToken != null) {
         if (e.getErrorCode() == INVALID_RESUME_TOKEN_ERROR) {
@@ -462,7 +528,7 @@ public class MongoSourceTask extends SourceTask {
     }
 
     if (cursor == null) {
-      cursor = createCursor(sourceConfig, mongoClient);
+      initializeCursorAndHeartbeatManager(time, sourceConfig, mongoClient);
     }
 
     if (cursor != null) {
@@ -470,11 +536,8 @@ public class MongoSourceTask extends SourceTask {
         BsonDocument next = cursor.tryNext();
         // The cursor has been closed by the server
         if (next == null && cursor.getServerCursor() == null) {
-          invalidatedCursor = true;
-          cursor.close();
-          cursor = null;
-          cursor = createCursor(sourceConfig, mongoClient);
-          next = cursor.tryNext();
+          invalidateCursorAndReinitialize();
+          next = cursor != null ? cursor.tryNext() : null;
         }
         return Optional.ofNullable(next);
       } catch (Exception e) {
@@ -482,15 +545,22 @@ public class MongoSourceTask extends SourceTask {
           cursor.close();
           cursor = null;
         }
-        if (!isRunning.get()) {
+        if (isRunning.get()) {
           LOGGER.info(
-              "An exception occurred when trying to get the next item from the changestream: {}",
+              "An exception occurred when trying to get the next item from the Change Stream: {}",
               e.getMessage());
         }
         return Optional.empty();
       }
     }
     return Optional.empty();
+  }
+
+  private void invalidateCursorAndReinitialize() {
+    invalidatedCursor = true;
+    cursor.close();
+    cursor = null;
+    initializeCursorAndHeartbeatManager(time, sourceConfig, mongoClient);
   }
 
   private ChangeStreamIterable<Document> getChangeStreamIterable(
@@ -534,7 +604,7 @@ public class MongoSourceTask extends SourceTask {
     return null;
   }
 
-  private BsonDocument getResumeToken(final MongoSourceConfig sourceConfig) {
+  BsonDocument getResumeToken(final MongoSourceConfig sourceConfig) {
     BsonDocument resumeToken = null;
     if (cachedResumeToken != null) {
       resumeToken = cachedResumeToken;
@@ -545,6 +615,9 @@ public class MongoSourceTask extends SourceTask {
       Map<String, Object> offset = getOffset(sourceConfig);
       if (offset != null && !offset.containsKey(COPY_KEY)) {
         resumeToken = BsonDocument.parse((String) offset.get(ID_FIELD));
+        if (offset.containsKey(HEARTBEAT_KEY)) {
+          LOGGER.info("Resume token from heartbeat: {}", resumeToken);
+        }
       }
     }
     return resumeToken;

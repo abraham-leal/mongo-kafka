@@ -190,7 +190,7 @@ public class MongoSinkTopicConfig extends AbstractConfig {
   public static final String FIELD_RENAMER_REGEXP_DISPLAY = "The field renamer regex";
   private static final String FIELD_RENAMER_REGEXP_DOC =
       "An inline JSON array with objects describing regexp settings.\n"
-          + "Example: `[[{\"regexp\":\"^key\\\\\\\\..*my.*$\",\"pattern\":\"my\",\"replace\":\"\"},"
+          + "Example: `[{\"regexp\":\"^key\\\\\\\\..*my.*$\",\"pattern\":\"my\",\"replace\":\"\"},"
           + "{\"regexp\":\"^value\\\\\\\\..*$\",\"pattern\":\"\\\\\\\\.\",\"replace\":\"_\"}]`";
   private static final String FIELD_RENAMER_REGEXP_DEFAULT = "[]";
 
@@ -242,7 +242,7 @@ public class MongoSinkTopicConfig extends AbstractConfig {
 
   private static final Pattern CLASS_NAME =
       Pattern.compile("\\p{javaJavaIdentifierStart}\\p{javaJavaIdentifierPart}*");
-  private static final Pattern FULLY_QUALIFIED_CLASS_NAME =
+  public static final Pattern FULLY_QUALIFIED_CLASS_NAME =
       Pattern.compile("(" + CLASS_NAME + "\\.)*" + CLASS_NAME);
 
   public static final String ID_FIELD = "_id";
@@ -370,7 +370,7 @@ public class MongoSinkTopicConfig extends AbstractConfig {
             DELETE_ON_NULL_VALUES_CONFIG,
             getBoolean(DELETE_ON_NULL_VALUES_CONFIG),
             format(
-                "Error: %s can only be applied when the configured IdStrategy is an instance of: %s or %s or %s",
+                "%s can only be applied when the configured IdStrategy is an instance of: %s or %s or %s",
                 DeleteOneDefaultStrategy.class.getSimpleName(),
                 FullKeyStrategy.class.getSimpleName(),
                 PartialKeyStrategy.class.getSimpleName(),

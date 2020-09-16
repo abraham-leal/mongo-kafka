@@ -20,10 +20,12 @@
 package com.mongodb.kafka.connect.util;
 
 import static com.mongodb.kafka.connect.sink.MongoSinkConfig.TOPIC_OVERRIDE_DOC;
+import static com.mongodb.kafka.connect.sink.MongoSinkTopicConfig.FULLY_QUALIFIED_CLASS_NAME;
 import static java.lang.String.format;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -62,27 +64,30 @@ public final class Validators {
   public static ValidatorWithOperators matching(final Pattern pattern) {
     return withStringDef(
         format("A string matching `%s`", pattern),
-        (name, value) -> {
-          // type already validated when parsing config, hence ignoring ClassCastException
-          if (!pattern.matcher((String) value).matches()) {
-            throw new ConfigException(name, value, "Does not match: " + pattern);
-          }
-        });
+        (name, value) -> matchPattern(pattern, name, (String) value));
   }
 
   @SuppressWarnings("unchecked")
   public static ValidatorWithOperators listMatchingPattern(final Pattern pattern) {
     return withStringDef(
         format("A list matching: `%s`", pattern),
-        (name, value) ->
-            ((List) value)
-                .forEach(
-                    v -> {
-                      if (!pattern.matcher((String) v).matches()) {
-                        throw new ConfigException(
-                            name, value, "Contains an invalid value. Does not match: " + pattern);
-                      }
-                    }));
+        (name, value) -> {
+          try {
+            ((List) value).forEach(v -> matchPattern(pattern, name, (String) v));
+          } catch (ConnectConfigException e) {
+            throw new ConfigException(name, value, e.getOriginalMessage());
+          }
+        });
+  }
+
+  private static void matchPattern(final Pattern pattern, final String name, final String value) {
+    if (!pattern.matcher(value).matches()) {
+      String message = "Does not match: " + pattern.pattern();
+      if (pattern.equals(FULLY_QUALIFIED_CLASS_NAME)) {
+        message = "Does not match expected class pattern.";
+      }
+      throw new ConnectConfigException(name, value, message);
+    }
   }
 
   public static ValidatorWithOperators isAValidRegex() {
@@ -156,7 +161,7 @@ public final class Validators {
         final E[] enumerators, final Function<E, String> mapper) {
       final List<String> values = new ArrayList<>(enumerators.length);
       for (E e : enumerators) {
-        values.add(mapper.apply(e).toLowerCase());
+        values.add(mapper.apply(e).toLowerCase(Locale.ROOT));
       }
       return new EnumValidatorAndRecommender(values);
     }
@@ -164,7 +169,7 @@ public final class Validators {
     @Override
     public void ensureValid(final String key, final Object value) {
       String enumValue = (String) value;
-      if (!values.contains(enumValue.toLowerCase())) {
+      if (!values.contains(enumValue.toLowerCase(Locale.ROOT))) {
         throw new ConfigException(
             key, value, format("Invalid enumerator value. Should be one of: %s", values));
       }

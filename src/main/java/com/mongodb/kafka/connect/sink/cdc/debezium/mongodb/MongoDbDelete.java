@@ -39,7 +39,11 @@ public class MongoDbDelete implements CdcOperation {
     BsonDocument keyDoc =
         doc.getKeyDoc()
             .orElseThrow(
-                () -> new DataException("Error: key doc must not be missing for delete operation"));
+                () -> new DataException("Key document must not be missing for delete operation"));
+
+    if (!keyDoc.containsKey(JSON_ID_FIELD)) {
+      throw new DataException(format("Delete document missing `%s` field.", JSON_ID_FIELD));
+    }
 
     try {
       return new DeleteOneModel<>(

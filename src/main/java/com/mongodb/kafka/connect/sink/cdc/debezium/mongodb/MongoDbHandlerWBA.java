@@ -66,13 +66,12 @@ public class MongoDbHandlerWBA extends DebeziumWBACdcHandler {
 
     BsonDocument keyDoc =
         doc.getKeyDoc()
-            .orElseThrow(
-                () -> new DataException("Error: key document must not be missing for CDC mode"));
+            .orElseThrow(() -> new DataException("Key document must not be missing for CDC mode"));
 
     BsonDocument valueDoc = doc.getValueDoc().orElseGet(BsonDocument::new);
 
     if (keyDoc.containsKey(JSON_ID_FIELD) && valueDoc.isEmpty()) {
-      LOGGER.debug("skipping debezium tombstone event for kafka topic compaction");
+      LOGGER.debug("Skipping debezium tombstone event for kafka topic compaction");
       return Optional.empty();
     }
     return Optional.of(getCdcOperation(valueDoc).perform(doc));

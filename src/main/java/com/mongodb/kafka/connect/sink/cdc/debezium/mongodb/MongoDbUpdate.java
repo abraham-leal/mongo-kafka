@@ -45,8 +45,11 @@ public class MongoDbUpdate implements CdcOperation {
     BsonDocument valueDoc =
         doc.getValueDoc()
             .orElseThrow(
-                () ->
-                    new DataException("Error: value doc must not be missing for update operation"));
+                () -> new DataException("Value document must not be missing for update operation"));
+
+    if (!valueDoc.containsKey(JSON_DOC_FIELD_PATH)) {
+      throw new DataException(format("Update document missing `%s` field.", JSON_DOC_FIELD_PATH));
+    }
 
     try {
       BsonDocument updateDoc =
@@ -68,8 +71,11 @@ public class MongoDbUpdate implements CdcOperation {
       BsonDocument keyDoc =
           doc.getKeyDoc()
               .orElseThrow(
-                  () ->
-                      new DataException("Error: key doc must not be missing for update operation"));
+                  () -> new DataException("Key document must not be missing for update operation"));
+
+      if (!keyDoc.containsKey(JSON_ID_FIELD)) {
+        throw new DataException(format("Update document missing `%s` field.", JSON_ID_FIELD));
+      }
 
       BsonDocument filterDoc =
           BsonDocument.parse(
