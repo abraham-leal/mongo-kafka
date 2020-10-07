@@ -31,6 +31,8 @@ import com.mongodb.kafka.connect.sink.converter.SinkDocument;
 import org.apache.kafka.connect.errors.DataException;
 import org.bson.BsonDocument;
 
+import java.util.Iterator;
+
 public class AttunityRdbmsInsert implements CdcOperation {
 
     private static final ReplaceOptions REPLACE_OPTIONS = new ReplaceOptions().upsert(true);
@@ -47,6 +49,15 @@ public class AttunityRdbmsInsert implements CdcOperation {
         );
 
         try {
+
+            // Take out null values from inserts/refreshes
+            for (Iterator<?> it = valueDoc.values().iterator();
+                 it.hasNext();) {
+                if (it.next() == null) {
+                    it.remove();
+                }
+            }
+
             BsonDocument filterDoc = AttunityRdbmsHandler.generateFilterDoc(keyDoc, valueDoc, OperationType.CREATE);
             BsonDocument upsertDoc = AttunityRdbmsHandler.generateUpsertOrReplaceDoc(keyDoc, valueDoc, filterDoc);
             return new ReplaceOneModel<>(filterDoc, upsertDoc, REPLACE_OPTIONS);

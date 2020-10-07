@@ -24,7 +24,13 @@ import static com.mongodb.kafka.connect.sink.MongoSinkTopicConfig.RETRIES_DEFER_
 import static com.mongodb.kafka.connect.util.ConfigHelper.getMongoDriverInformation;
 import static java.util.Collections.emptyList;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -63,7 +69,7 @@ public class MongoSinkTask extends SinkTask {
     private static final Logger LOGGER = LoggerFactory.getLogger(MongoSinkTask.class);
     private static final String CONNECTOR_TYPE = "sink";
     private static final BulkWriteOptions BULK_WRITE_OPTIONS = new BulkWriteOptions();
-    private KafkaProducer<String,String> dlqProducer;
+    private KafkaProducer<String, String> dlqProducer;
     private MongoSinkConfig sinkConfig;
     private MongoClient mongoClient;
     private Map<String, AtomicInteger> remainingRetriesTopicMap;
@@ -83,21 +89,23 @@ public class MongoSinkTask extends SinkTask {
     public void start(final Map<String, String> props) {
         LOGGER.info("Starting DLQ Producer for bad records");
         if (props.get("errors.tolerance") != null && props.get("customdlq.enabled") != null){
-            if(props.get("errors.tolerance").equalsIgnoreCase("all")
+            if (props.get("errors.tolerance").equalsIgnoreCase("all")
                     && props.get("customdlq.enabled").equalsIgnoreCase("true")){
                 try {
-                    Map<String,Object> producerProps = new HashMap<>();
-                    producerProps.put("sasl.mechanism",(props.get("customdlq.sasl.mechanism")==null ? "GSSAPI" : props.get("customdlq.sasl.mechanism")));
-                    producerProps.put("security.protocol",(props.get("customdlq.security.protocol")==null ? "PLAINTEXT" : props.get("customdlq.security.protocol")));
-                    producerProps.put("sasl.jaas.config",props.get("customdlq.sasl.jaas.config"));
-                    producerProps.put("bootstrap.servers",props.get("customdlq.bootstrap.servers"));
+                    Map<String, Object> producerProps = new HashMap<>();
+                    producerProps.put("sasl.mechanism", (props.get("customdlq.sasl.mechanism") == null
+                            ? "GSSAPI" : props.get("customdlq.sasl.mechanism")));
+                    producerProps.put("security.protocol", (props.get("customdlq.security.protocol") == null
+                            ? "PLAINTEXT" : props.get("customdlq.security.protocol")));
+                    producerProps.put("sasl.jaas.config", props.get("customdlq.sasl.jaas.config"));
+                    producerProps.put("bootstrap.servers", props.get("customdlq.bootstrap.servers"));
                     producerProps.put("client.id", props.get("name") + "-dlqProducer-" + UUID.randomUUID().toString());
                     producerProps.put("key.serializer", StringSerializer.class);
-                    producerProps.put("value.serializer",StringSerializer.class);
+                    producerProps.put("value.serializer", StringSerializer.class);
                     dlqProducer = new KafkaProducer<String, String>(producerProps);
-                }catch(Exception e){
-                    LOGGER.info("The DLQ Producer failed to be created. Connector will continue but will " +
-                            "not send any records to the DLQ");
+                } catch (Exception e) {
+                    LOGGER.info("The DLQ Producer failed to be created. Connector will continue but will "
+                            + "not send any records to the DLQ");
                 }
             }
         }
@@ -107,11 +115,22 @@ public class MongoSinkTask extends SinkTask {
             sinkConfig = new MongoSinkConfig(props);
             remainingRetriesTopicMap = new ConcurrentHashMap<>(sinkConfig.getTopics().orElse(emptyList()).stream()
                     .collect(Collectors.toMap((t) -> t,
-                            (t) -> new AtomicInteger(sinkConfig.getMongoSinkTopicConfig(t).getInt(MAX_NUM_RETRIES_CONFIG)))));
+                            (t) -> new AtomicInteger(sinkConfig
+                                    .getMongoSinkTopicConfig(t)
+                                    .getInt(MAX_NUM_RETRIES_CONFIG)))));
         } catch (Exception e) {
             throw new ConnectException("Failed to start new task", e);
         }
         LOGGER.debug("Started MongoDB sink task");
+
+        if (props.get("key.extraction.enabled") != null
+                && props.get("key.extraction.enabled").equalsIgnoreCase("true")){
+            LOGGER.info("Key extraction from value is enabled!");
+        }
+        if (props.get("remove.nulls.enabled") != null
+                && props.get("remove.nulls.enabled").equalsIgnoreCase("true")){
+            LOGGER.info("Remove null entries is enabled!");
+        }
     }
 
     /**
@@ -184,7 +203,8 @@ public class MongoSinkTask extends SinkTask {
 
     private MongoClient getMongoClient() {
         if (mongoClient == null) {
-            mongoClient = MongoClients.create(sinkConfig.getConnectionString(), getMongoDriverInformation(CONNECTOR_TYPE));
+            mongoClient = MongoClients.create(sinkConfig.getConnectionString(),
+                    getMongoDriverInformation(CONNECTOR_TYPE));
         }
         return mongoClient;
     }
@@ -211,7 +231,8 @@ public class MongoSinkTask extends SinkTask {
         } catch (MongoException e) {
             LOGGER.error("Error on mongodb operation", e);
             LOGGER.error("Writing {} document(s) into collection [{}] failed -> remaining retries ({})",
-                    writeModels.size(), config.getNamespace().getFullName(), getRemainingRetriesForTopic(config.getTopic()).get());
+                    writeModels.size(), config.getNamespace().getFullName(),
+                    getRemainingRetriesForTopic(config.getTopic()).get());
             checkRetriableException(config, e);
         }
     }
@@ -253,7 +274,8 @@ public class MongoSinkTask extends SinkTask {
         return batchMapping;
     }
 
-    List<? extends WriteModel<BsonDocument>> buildWriteModel(final MongoSinkTopicConfig config, final Collection<SinkRecord> records) {
+    List<? extends WriteModel<BsonDocument>> buildWriteModel(final MongoSinkTopicConfig config,
+                                                             final Collection<SinkRecord> records) {
         List<WriteModel<BsonDocument>> docsToWrite = new ArrayList<>(records.size());
         LOGGER.debug("building write model for {} record(s)", records.size());
 
@@ -277,16 +299,17 @@ public class MongoSinkTask extends SinkTask {
         return docsToWrite;
     }
 
-    List<? extends WriteModel<BsonDocument>> buildWriteModelCDC(final MongoSinkTopicConfig config, final Collection<SinkRecord> records) {
+    List<? extends WriteModel<BsonDocument>> buildWriteModelCDC(final MongoSinkTopicConfig config,
+                                                                final Collection<SinkRecord> records) {
         LOGGER.debug("Building CDC write model for {} record(s) for topic {}", records.size(), config.getTopic());
-        if(dlqProducer != null){
+        if (dlqProducer != null){
             return records.stream()
                     .map(sinkConverter::convert)
                     .map(sd -> config.getCdcHandler().flatMap(c -> c.handle(sd, dlqProducer)))
                     .flatMap(o -> o.map(Stream::of).orElseGet(Stream::empty))
                     .collect(Collectors.toList());
         }
-        else{
+        else {
             return records.stream()
                     .map(sinkConverter::convert)
                     .map(sd -> config.getCdcHandler().flatMap(c -> c.handle(sd)))

@@ -49,15 +49,20 @@ public abstract class AttunityCdcHandler extends CdcHandler {
     public CdcOperation getCdcOperation(final BsonDocument doc) {
         if (doc.containsKey(OPERATION_TYPE_TOPLEVEL_WRAPPER_PATH)){
             try {
-                if (!doc.getDocument(OPERATION_TYPE_TOPLEVEL_WRAPPER_PATH).getDocument(OPERATION_TYPE_WRAPPER_PATH).containsKey(OPERATION_TYPE_FIELD_PATH)
-                        || !doc.getDocument(OPERATION_TYPE_TOPLEVEL_WRAPPER_PATH).getDocument(OPERATION_TYPE_WRAPPER_PATH).get(OPERATION_TYPE_FIELD_PATH).isString()) {
+                if (!doc.getDocument(OPERATION_TYPE_TOPLEVEL_WRAPPER_PATH)
+                        .getDocument(OPERATION_TYPE_WRAPPER_PATH).containsKey(OPERATION_TYPE_FIELD_PATH)
+                        || !doc.getDocument(OPERATION_TYPE_TOPLEVEL_WRAPPER_PATH)
+                        .getDocument(OPERATION_TYPE_WRAPPER_PATH).get(OPERATION_TYPE_FIELD_PATH).isString()) {
                     throw new DataException("Error: value doc is missing CDC operation type of type string");
                 }
-                String operation = getAttunityOperation(doc.getDocument(OPERATION_TYPE_TOPLEVEL_WRAPPER_PATH).getDocument(OPERATION_TYPE_WRAPPER_PATH).get(OPERATION_TYPE_FIELD_PATH).asString().getValue());
+                String operation = getAttunityOperation(doc.getDocument(OPERATION_TYPE_TOPLEVEL_WRAPPER_PATH)
+                        .getDocument(OPERATION_TYPE_WRAPPER_PATH).get(OPERATION_TYPE_FIELD_PATH).asString().getValue());
                 CdcOperation op = operations.get(OperationType.fromText(operation));
                 if (op == null) {
                     throw new DataException("Error: no CDC operation found in mapping for operation="
-                            + doc.getDocument(OPERATION_TYPE_TOPLEVEL_WRAPPER_PATH).getDocument(OPERATION_TYPE_WRAPPER_PATH).get(OPERATION_TYPE_FIELD_PATH).asString().getValue());
+                            + doc.getDocument(OPERATION_TYPE_TOPLEVEL_WRAPPER_PATH)
+                            .getDocument(OPERATION_TYPE_WRAPPER_PATH)
+                            .get(OPERATION_TYPE_FIELD_PATH).asString().getValue());
                 }
                 return op;
             } catch (IllegalArgumentException exc) {
@@ -69,11 +74,13 @@ public abstract class AttunityCdcHandler extends CdcHandler {
                         || !doc.getDocument(OPERATION_TYPE_WRAPPER_PATH).get(OPERATION_TYPE_FIELD_PATH).isString()) {
                     throw new DataException("Error: value doc is missing CDC operation type of type string");
                 }
-                String operation = getAttunityOperation(doc.getDocument(OPERATION_TYPE_WRAPPER_PATH).get(OPERATION_TYPE_FIELD_PATH).asString().getValue());
+                String operation = getAttunityOperation(doc.getDocument(OPERATION_TYPE_WRAPPER_PATH)
+                        .get(OPERATION_TYPE_FIELD_PATH).asString().getValue());
                 CdcOperation op = operations.get(OperationType.fromText(operation));
                 if (op == null) {
                     throw new DataException("Error: no CDC operation found in mapping for operation="
-                            + doc.getDocument(OPERATION_TYPE_WRAPPER_PATH).get(OPERATION_TYPE_FIELD_PATH).asString().getValue());
+                            + doc.getDocument(OPERATION_TYPE_WRAPPER_PATH)
+                            .get(OPERATION_TYPE_FIELD_PATH).asString().getValue());
                 }
                 return op;
             } catch (IllegalArgumentException exc) {

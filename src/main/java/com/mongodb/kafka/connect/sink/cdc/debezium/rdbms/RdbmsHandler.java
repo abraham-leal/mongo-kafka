@@ -78,7 +78,7 @@ public class RdbmsHandler extends DebeziumCdcHandler {
     }
 
     @Override
-    public Optional<WriteModel<BsonDocument>> handle(SinkDocument doc, KafkaProducer<String, String> dlqProducer) {
+    public Optional<WriteModel<BsonDocument>> handle(final SinkDocument doc, final KafkaProducer<String, String> dlqProducer) {
         BsonDocument keyDoc = doc.getKeyDoc().orElseGet(BsonDocument::new);
 
         BsonDocument valueDoc = doc.getValueDoc().orElseGet(BsonDocument::new);

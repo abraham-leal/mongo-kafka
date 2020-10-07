@@ -22,15 +22,16 @@ import com.mongodb.client.model.UpdateOneModel;
 import com.mongodb.client.model.WriteModel;
 import com.mongodb.kafka.connect.sink.converter.SinkDocument;
 import org.apache.kafka.connect.errors.DataException;
-import org.bson.*;
+import org.bson.BsonDocument;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.platform.runner.JUnitPlatform;
 import org.junit.runner.RunWith;
 
-import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @RunWith(JUnitPlatform.class)
 class AttunityRdbmsUpdateTest {
@@ -46,7 +47,8 @@ class AttunityRdbmsUpdateTest {
     @DisplayName("when valid doc change cdc event then correct UpdateOneModel")
     void testValidSinkDocumentForUpdate() {
         BsonDocument keyDoc = BsonDocument.parse("{table: 1234, key: 43214}");
-        BsonDocument valueDoc = new BsonDocument("message", new BsonDocument("data", AFTER_DOC).append("headers", HEADER_DOC).append("beforeData",BEFORE_DOC));
+        BsonDocument valueDoc = new BsonDocument("message", new BsonDocument("data", AFTER_DOC)
+                .append("headers", HEADER_DOC).append("beforeData", BEFORE_DOC));
 
         WriteModel<BsonDocument> result = RDBMS_UPDATE.perform(new SinkDocument(keyDoc, valueDoc));
         assertTrue(result instanceof UpdateOneModel, "result expected to be of type UpdateOneModel");
@@ -54,7 +56,6 @@ class AttunityRdbmsUpdateTest {
         UpdateOneModel<BsonDocument> writeModel = (UpdateOneModel<BsonDocument>) result;
         assertEquals(UPDATE_DOC, writeModel.getUpdate(), "update doc not matching what is expected");
         assertTrue(writeModel.getFilter() instanceof BsonDocument, "filter expected to be of type BsonDocument");
-        System.out.println(writeModel.toString());
         assertEquals(FILTER_DOC, writeModel.getFilter());
     }
 

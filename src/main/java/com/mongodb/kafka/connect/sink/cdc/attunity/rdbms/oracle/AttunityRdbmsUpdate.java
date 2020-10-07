@@ -21,7 +21,9 @@
  */
 package com.mongodb.kafka.connect.sink.cdc.attunity.rdbms.oracle;
 
-import com.mongodb.client.model.*;
+import com.mongodb.client.model.UpdateOneModel;
+import com.mongodb.client.model.UpdateOptions;
+import com.mongodb.client.model.WriteModel;
 import com.mongodb.kafka.connect.sink.cdc.CdcOperation;
 import com.mongodb.kafka.connect.sink.cdc.debezium.OperationType;
 import com.mongodb.kafka.connect.sink.converter.SinkDocument;
@@ -39,12 +41,12 @@ public class AttunityRdbmsUpdate implements CdcOperation {
                 () -> new DataException("Error: value doc must not be missing for update operation")
         );
 
-        try{
+        try {
             //patch contains idempotent change only to update original document with
             BsonDocument keyDoc = doc.getKeyDoc().orElseThrow(
                     () -> new DataException("Error: key doc must not be missing for update operation"));
             BsonDocument filterDoc = AttunityRdbmsHandler.generateFilterDoc(keyDoc, valueDoc, OperationType.UPDATE);
-            BsonDocument updateDoc = AttunityRdbmsHandler.generateUpdateDoc(keyDoc,valueDoc,filterDoc);
+            BsonDocument updateDoc = AttunityRdbmsHandler.generateUpdateDoc(keyDoc, valueDoc, filterDoc);
             if (updateDoc.getDocument("$set").keySet().isEmpty()){
                 return null;
             }

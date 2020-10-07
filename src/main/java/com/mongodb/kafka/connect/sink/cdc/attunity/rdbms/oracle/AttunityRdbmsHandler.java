@@ -30,19 +30,34 @@ import com.mongodb.kafka.connect.sink.converter.SinkDocument;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.connect.errors.DataException;
-import org.bson.*;
+import org.bson.BsonDocument;
+import org.bson.BsonInvalidOperationException;
+import org.bson.BsonNull;
+import org.bson.BsonObjectId;
+import org.bson.BsonValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 public class AttunityRdbmsHandler extends AttunityCdcHandler {
     static final String ID_FIELD = "_id";
     private static final String JSON_DOC_BEFORE_FIELD = "beforeData";
     private static final String JSON_DOC_AFTER_FIELD = "data";
     private static final String JSON_DOC_WRAPPER_FIELD = "message";
-    private boolean KEY_EXTRACTION_ENABLED = false;
-    private List<String> fieldsToExtract = new ArrayList<>();
+    private final boolean keyExtractionEnabled = getConfig().originals().get("key.extraction.enabled") != null
+            && getConfig().originalsStrings().get("key.extraction.enabled").equalsIgnoreCase("true");
+    private final boolean removeNullsEnabled = getConfig().originals().get("remove.nulls.enabled") != null
+            && getConfig().originalsStrings().get("remove.nulls.enabled").equalsIgnoreCase("true");
+    private final List<String> fieldsToExtract = Arrays.asList(getConfig()
+            .getString(MongoSinkTopicConfig.KEY_PROJECTION_LIST_CONFIG)
+            .split("\\s*,\\s*"));
+    private static final BsonValue SAMPLENULL = new BsonNull();
     private static final Logger LOGGER = LoggerFactory.getLogger(AttunityRdbmsHandler.class);
     private static final Map<OperationType, CdcOperation> DEFAULT_OPERATIONS = new HashMap<OperationType, CdcOperation>(){{
         put(OperationType.CREATE, new AttunityRdbmsInsert());
@@ -58,14 +73,6 @@ public class AttunityRdbmsHandler extends AttunityCdcHandler {
     public AttunityRdbmsHandler(final MongoSinkTopicConfig config,
                                 final Map<OperationType, CdcOperation> operations) {
         super(config);
-        KEY_EXTRACTION_ENABLED = getConfig().originals().get("key.extraction.enabled") != null
-                && getConfig().originalsStrings().get("key.extraction.enabled").equalsIgnoreCase("true");
-        if (KEY_EXTRACTION_ENABLED){
-            LOGGER.info("Key extraction from value is enabled!");
-            fieldsToExtract = Arrays.asList(getConfig()
-                    .getString(MongoSinkTopicConfig.KEY_PROJECTION_LIST_CONFIG)
-                    .split("\\s*,\\s*"));
-        }
         registerOperations(operations);
     }
 
@@ -80,14 +87,15 @@ public class AttunityRdbmsHandler extends AttunityCdcHandler {
             return Optional.empty();
         }
 
-        if (KEY_EXTRACTION_ENABLED){
-            if ( valueDoc.containsKey(JSON_DOC_WRAPPER_FIELD) ){
+        if (keyExtractionEnabled){
+            if (valueDoc.containsKey(JSON_DOC_WRAPPER_FIELD)){
                 for (String field : fieldsToExtract){
-                    keyDoc.put(field,valueDoc.getDocument(JSON_DOC_WRAPPER_FIELD).getDocument(JSON_DOC_AFTER_FIELD).get(field));
+                    keyDoc.put(field, valueDoc.getDocument(JSON_DOC_WRAPPER_FIELD)
+                            .getDocument(JSON_DOC_AFTER_FIELD).get(field));
                 }
             } else {
                 for (String field : fieldsToExtract){
-                    keyDoc.put(field,valueDoc.getDocument(JSON_DOC_AFTER_FIELD).get(field));
+                    keyDoc.put(field, valueDoc.getDocument(JSON_DOC_AFTER_FIELD).get(field));
                 }
             }
         }
@@ -95,12 +103,22 @@ public class AttunityRdbmsHandler extends AttunityCdcHandler {
             keyDoc = doc.getKeyDoc().orElseGet(BsonDocument::new);
         }
 
-        return Optional.ofNullable(getCdcOperation(valueDoc)
+        CdcOperation opToPerform = getCdcOperation(valueDoc);
+
+        // Remove Nulls from Values to insert
+        if (removeNullsEnabled && opToPerform instanceof AttunityRdbmsInsert) {
+            valueDoc.getDocument(JSON_DOC_WRAPPER_FIELD)
+                    .getDocument(JSON_DOC_AFTER_FIELD)
+                    .values().removeAll(Collections.singleton(SAMPLENULL));
+        }
+
+        return Optional.ofNullable(opToPerform
                 .perform(new SinkDocument(keyDoc, valueDoc)));
     }
 
     @Override
-    public Optional<WriteModel<BsonDocument>> handle(final SinkDocument doc, KafkaProducer<String, String> dlqProducer) {
+    public Optional<WriteModel<BsonDocument>> handle(final SinkDocument doc,
+                                                     final KafkaProducer<String, String> dlqProducer) {
 
         BsonDocument keyDoc = new BsonDocument();
 
@@ -112,14 +130,15 @@ public class AttunityRdbmsHandler extends AttunityCdcHandler {
         }
 
         try {
-            if (KEY_EXTRACTION_ENABLED){
-                if ( valueDoc.containsKey(JSON_DOC_WRAPPER_FIELD) ){
+            if (keyExtractionEnabled){
+                if (valueDoc.containsKey(JSON_DOC_WRAPPER_FIELD)){
                     for (String field : fieldsToExtract){
-                        keyDoc.put(field,valueDoc.getDocument(JSON_DOC_WRAPPER_FIELD).getDocument(JSON_DOC_AFTER_FIELD).get(field));
+                        keyDoc.put(field, valueDoc.getDocument(JSON_DOC_WRAPPER_FIELD)
+                                .getDocument(JSON_DOC_AFTER_FIELD).get(field));
                     }
                 } else {
                     for (String field : fieldsToExtract){
-                        keyDoc.put(field,valueDoc.getDocument(JSON_DOC_AFTER_FIELD).get(field));
+                        keyDoc.put(field, valueDoc.getDocument(JSON_DOC_AFTER_FIELD).get(field));
                     }
                 }
             }
@@ -127,11 +146,19 @@ public class AttunityRdbmsHandler extends AttunityCdcHandler {
                 keyDoc = doc.getKeyDoc().orElseGet(BsonDocument::new);
             }
 
-            return Optional.ofNullable(getCdcOperation(valueDoc)
+            CdcOperation opToPerform = getCdcOperation(valueDoc);
+
+            // Remove Nulls from Values to insert
+            if (removeNullsEnabled && opToPerform instanceof AttunityRdbmsInsert) {
+                valueDoc.getDocument(JSON_DOC_WRAPPER_FIELD)
+                        .getDocument(JSON_DOC_AFTER_FIELD)
+                        .values().removeAll(Collections.singleton(SAMPLENULL));
+            }
+
+            return Optional.ofNullable(opToPerform
                     .perform(new SinkDocument(keyDoc, valueDoc)));
-        }
-        catch ( Exception e ){
-            ProducerRecord<String,String> badRecord = new ProducerRecord<>(
+        } catch (Exception e){
+            ProducerRecord<String, String> badRecord = new ProducerRecord<>(
                     getConfig().originals().get("errors.deadletterqueue.topic.name").toString(),
                     keyDoc.toJson(),
                     valueDoc.toJson());
@@ -141,10 +168,11 @@ public class AttunityRdbmsHandler extends AttunityCdcHandler {
             return Optional.empty();
         }
     }
-    static BsonDocument generateFilterDoc(final BsonDocument keyDoc, final BsonDocument valueDoc, final OperationType opType) {
+    static BsonDocument generateFilterDoc(final BsonDocument keyDoc, final BsonDocument valueDoc,
+                                          final OperationType opType) {
         final boolean checkOpType = opType.equals(OperationType.CREATE) || opType.equals(OperationType.READ);
-        if ( valueDoc.containsKey(JSON_DOC_WRAPPER_FIELD) ){
-            if (keyDoc.keySet().isEmpty()) {
+        if (valueDoc.containsKey(JSON_DOC_WRAPPER_FIELD)){
+            if (keyDoc.keySet().isEmpty()){
                 if (checkOpType) {
                     //create: no PK info in keyDoc -> generate ObjectId
                     return new BsonDocument(ID_FIELD, new BsonObjectId());
@@ -189,12 +217,15 @@ public class AttunityRdbmsHandler extends AttunityCdcHandler {
         return new BsonDocument(ID_FIELD, pk);
     }
 
-    static BsonDocument generateUpsertOrReplaceDoc(final BsonDocument keyDoc, final BsonDocument valueDoc, final BsonDocument filterDoc) {
+    static BsonDocument generateUpsertOrReplaceDoc(final BsonDocument keyDoc,
+                                                   final BsonDocument valueDoc, final BsonDocument filterDoc) {
         BsonDocument afterDoc;
         BsonDocument upsertDoc = new BsonDocument();
-        if ( valueDoc.containsKey(JSON_DOC_WRAPPER_FIELD) ){
-            if (!valueDoc.getDocument(JSON_DOC_WRAPPER_FIELD).containsKey(JSON_DOC_AFTER_FIELD) || valueDoc.getDocument(JSON_DOC_WRAPPER_FIELD).get(JSON_DOC_AFTER_FIELD).isNull()
-                    || !valueDoc.getDocument(JSON_DOC_WRAPPER_FIELD).get(JSON_DOC_AFTER_FIELD).isDocument() || valueDoc.getDocument(JSON_DOC_WRAPPER_FIELD).getDocument(JSON_DOC_AFTER_FIELD).isEmpty()) {
+        if (valueDoc.containsKey(JSON_DOC_WRAPPER_FIELD)){
+            if (!valueDoc.getDocument(JSON_DOC_WRAPPER_FIELD).containsKey(JSON_DOC_AFTER_FIELD)
+                    || valueDoc.getDocument(JSON_DOC_WRAPPER_FIELD).get(JSON_DOC_AFTER_FIELD).isNull()
+                    || !valueDoc.getDocument(JSON_DOC_WRAPPER_FIELD).get(JSON_DOC_AFTER_FIELD).isDocument()
+                    || valueDoc.getDocument(JSON_DOC_WRAPPER_FIELD).getDocument(JSON_DOC_AFTER_FIELD).isEmpty()) {
                 throw new DataException("Error: valueDoc must contain non-empty 'data' field"
                         + " of type document for insert/update operation");
             }
@@ -202,7 +233,8 @@ public class AttunityRdbmsHandler extends AttunityCdcHandler {
             afterDoc = valueDoc.getDocument(JSON_DOC_WRAPPER_FIELD).getDocument(JSON_DOC_AFTER_FIELD);
         } else {
             if (!valueDoc.containsKey(JSON_DOC_AFTER_FIELD) || valueDoc.get(JSON_DOC_AFTER_FIELD).isNull()
-                    || !valueDoc.get(JSON_DOC_AFTER_FIELD).isDocument() || valueDoc.getDocument(JSON_DOC_AFTER_FIELD).isEmpty()) {
+                    || !valueDoc.get(JSON_DOC_AFTER_FIELD).isDocument()
+                    || valueDoc.getDocument(JSON_DOC_AFTER_FIELD).isEmpty()) {
                 throw new DataException("Error: valueDoc must contain non-empty 'data' field"
                         + " of type document for insert/update operation");
             }
@@ -220,14 +252,17 @@ public class AttunityRdbmsHandler extends AttunityCdcHandler {
         return upsertDoc;
     }
 
-    static BsonDocument generateUpdateDoc(final BsonDocument keyDoc, final BsonDocument valueDoc, final BsonDocument filterDoc) {
+    static BsonDocument generateUpdateDoc(final BsonDocument keyDoc,
+                                          final BsonDocument valueDoc, final BsonDocument filterDoc) {
         BsonDocument updateDoc = new BsonDocument();
         BsonDocument updates = new BsonDocument();
         BsonDocument beforeDoc;
         BsonDocument afterDoc;
-        if ( valueDoc.containsKey(JSON_DOC_WRAPPER_FIELD) ){
-            if (!valueDoc.getDocument(JSON_DOC_WRAPPER_FIELD).containsKey(JSON_DOC_AFTER_FIELD) || valueDoc.getDocument(JSON_DOC_WRAPPER_FIELD).get(JSON_DOC_AFTER_FIELD).isNull()
-                    || !valueDoc.getDocument(JSON_DOC_WRAPPER_FIELD).get(JSON_DOC_AFTER_FIELD).isDocument() || valueDoc.getDocument(JSON_DOC_WRAPPER_FIELD).getDocument(JSON_DOC_AFTER_FIELD).isEmpty()) {
+        if (valueDoc.containsKey(JSON_DOC_WRAPPER_FIELD)){
+            if (!valueDoc.getDocument(JSON_DOC_WRAPPER_FIELD).containsKey(JSON_DOC_AFTER_FIELD)
+                    || valueDoc.getDocument(JSON_DOC_WRAPPER_FIELD).get(JSON_DOC_AFTER_FIELD).isNull()
+                    || !valueDoc.getDocument(JSON_DOC_WRAPPER_FIELD).get(JSON_DOC_AFTER_FIELD).isDocument()
+                    || valueDoc.getDocument(JSON_DOC_WRAPPER_FIELD).getDocument(JSON_DOC_AFTER_FIELD).isEmpty()) {
                 throw new DataException("Error: valueDoc must contain non-empty 'data' field"
                         + " of type document for insert/update operation");
             }
@@ -238,7 +273,8 @@ public class AttunityRdbmsHandler extends AttunityCdcHandler {
 
         } else {
             if (!valueDoc.containsKey(JSON_DOC_AFTER_FIELD) || valueDoc.get(JSON_DOC_AFTER_FIELD).isNull()
-                    || !valueDoc.get(JSON_DOC_AFTER_FIELD).isDocument() || valueDoc.getDocument(JSON_DOC_AFTER_FIELD).isEmpty()) {
+                    || !valueDoc.get(JSON_DOC_AFTER_FIELD).isDocument()
+                    || valueDoc.getDocument(JSON_DOC_AFTER_FIELD).isEmpty()) {
                 throw new DataException("Error: valueDoc must contain non-empty 'data' field"
                         + " of type document for insert/update operation");
             }
@@ -249,7 +285,7 @@ public class AttunityRdbmsHandler extends AttunityCdcHandler {
 
         for (String key : afterDoc.keySet()){
             if (!afterDoc.get(key).equals(beforeDoc.get(key))){
-                updates.put(key,afterDoc.get(key));
+                updates.put(key, afterDoc.get(key));
             }
         }
 

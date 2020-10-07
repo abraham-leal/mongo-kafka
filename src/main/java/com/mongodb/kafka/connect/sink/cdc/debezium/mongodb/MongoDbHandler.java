@@ -81,7 +81,7 @@ public class MongoDbHandler extends DebeziumCdcHandler {
     }
 
     @Override
-    public Optional<WriteModel<BsonDocument>> handle(SinkDocument doc, KafkaProducer<String, String> dlqProducer) {
+    public Optional<WriteModel<BsonDocument>> handle(final SinkDocument doc, final KafkaProducer<String, String> dlqProducer) {
         BsonDocument keyDoc = doc.getKeyDoc().orElseThrow(
                 () -> new DataException("Error: key document must not be missing for CDC mode")
         );

@@ -28,7 +28,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.platform.runner.JUnitPlatform;
 import org.junit.runner.RunWith;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 
 @RunWith(JUnitPlatform.class)
 class AttunityRdbmsDeleteTest {
@@ -45,7 +48,8 @@ class AttunityRdbmsDeleteTest {
         assertTrue(result instanceof DeleteOneModel, "result expected to be of type DeleteOneModel");
 
         DeleteOneModel<BsonDocument> writeModel = (DeleteOneModel<BsonDocument>) result;
-        assertTrue(writeModel.getFilter() instanceof BsonDocument, "filter expected to be of type BsonDocument");
+        assertTrue(writeModel.getFilter() instanceof BsonDocument,
+                "filter expected to be of type BsonDocument");
         assertEquals(filterDoc, writeModel.getFilter());
     }
 
@@ -60,7 +64,8 @@ class AttunityRdbmsDeleteTest {
         assertTrue(result instanceof DeleteOneModel, "result expected to be of type DeleteOneModel");
 
         DeleteOneModel<BsonDocument> writeModel = (DeleteOneModel<BsonDocument>) result;
-        assertTrue(writeModel.getFilter() instanceof BsonDocument, "filter expected to be of type BsonDocument");
+        assertTrue(writeModel.getFilter() instanceof BsonDocument,
+                "filter expected to be of type BsonDocument");
         assertEquals(filterDoc, writeModel.getFilter());
     }
 
@@ -69,7 +74,8 @@ class AttunityRdbmsDeleteTest {
     void testValidSinkDocumentNoPK() {
         BsonDocument filterDoc = BsonDocument.parse("{text: 'misc', number: 9876, active: true}");
         BsonDocument keyDoc = new BsonDocument();
-        BsonDocument valueDoc = BsonDocument.parse("{message: { headers: { operation : 'INSERT' } , beforeData: {text: 'misc', number: 9876, active: true}}}");
+        BsonDocument valueDoc = BsonDocument.parse("{message: { headers: { operation : 'INSERT' } , "
+                + "beforeData: {text: 'misc', number: 9876, active: true}}}");
 
         WriteModel<BsonDocument> result = RDBMS_DELETE.perform(new SinkDocument(keyDoc, valueDoc));
         assertTrue(result instanceof DeleteOneModel, "result expected to be of type DeleteOneModel");
@@ -95,7 +101,8 @@ class AttunityRdbmsDeleteTest {
     @DisplayName("when value doc 'before' field both empty then DataException")
     void testEmptyKeyDocAndEmptyValueBeforeField() {
         assertThrows(DataException.class, () -> RDBMS_DELETE.perform(
-                new SinkDocument(new BsonDocument(), BsonDocument.parse("{message: { headers: { operation : 'INSERT' } , beforeData: { }}}")))
+                new SinkDocument(new BsonDocument(),
+                        BsonDocument.parse("{message: { headers: { operation : 'INSERT' } , beforeData: { }}}")))
         );
     }
 

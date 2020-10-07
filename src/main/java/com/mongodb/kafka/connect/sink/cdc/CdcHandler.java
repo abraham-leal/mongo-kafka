@@ -41,6 +41,6 @@ public abstract class CdcHandler {
     }
 
     public abstract Optional<WriteModel<BsonDocument>> handle(SinkDocument doc);
-    public abstract Optional<WriteModel<BsonDocument>> handle(SinkDocument doc, KafkaProducer<String,String> dlqProducer);
+    public abstract Optional<WriteModel<BsonDocument>> handle(SinkDocument doc, KafkaProducer<String, String> dlqProducer);
 
 }
