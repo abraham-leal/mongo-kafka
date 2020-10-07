@@ -18,8 +18,8 @@
 
 package com.mongodb.kafka.connect.sink.cdc.debezium.mongodb;
 
-import static com.mongodb.kafka.connect.sink.cdc.debezium.mongodb.MongoDbHandler.ID_FIELD;
-import static com.mongodb.kafka.connect.sink.cdc.debezium.mongodb.MongoDbHandler.JSON_ID_FIELD;
+import static com.mongodb.kafka.connect.sink.cdc.debezium.mongodb.MongoDbHandlerWBA.ID_FIELD;
+import static com.mongodb.kafka.connect.sink.cdc.debezium.mongodb.MongoDbHandlerWBA.JSON_ID_FIELD;
 import static java.lang.String.format;
 
 import org.apache.kafka.connect.errors.DataException;
@@ -34,15 +34,23 @@ import com.mongodb.kafka.connect.sink.converter.SinkDocument;
 
 public class MongoDbDelete implements CdcOperation {
 
-    @Override
-    public WriteModel<BsonDocument> perform(final SinkDocument doc) {
-        BsonDocument keyDoc = doc.getKeyDoc().orElseThrow(
-                () -> new DataException("Error: key doc must not be missing for delete operation"));
+  @Override
+  public WriteModel<BsonDocument> perform(final SinkDocument doc) {
+    BsonDocument keyDoc =
+        doc.getKeyDoc()
+            .orElseThrow(
+                () -> new DataException("Key document must not be missing for delete operation"));
 
-        try {
-            return new DeleteOneModel<>(BsonDocument.parse(format("{%s: %s}", ID_FIELD, keyDoc.getString(JSON_ID_FIELD).getValue())));
-        } catch (Exception exc) {
-            throw new DataException(exc);
-        }
+    if (!keyDoc.containsKey(JSON_ID_FIELD)) {
+      throw new DataException(format("Delete document missing `%s` field.", JSON_ID_FIELD));
     }
+
+    try {
+      return new DeleteOneModel<>(
+          BsonDocument.parse(
+              format("{%s: %s}", ID_FIELD, keyDoc.getString(JSON_ID_FIELD).getValue())));
+    } catch (Exception exc) {
+      throw new DataException(exc);
+    }
+  }
 }

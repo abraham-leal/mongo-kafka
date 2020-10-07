@@ -21,36 +21,47 @@
  */
 package com.mongodb.kafka.connect.sink.cdc.attunity.rdbms.oracle;
 
-import com.mongodb.client.model.*;
+import org.apache.kafka.connect.errors.DataException;
+
+import org.bson.BsonDocument;
+
+import com.mongodb.client.model.UpdateOneModel;
+import com.mongodb.client.model.UpdateOptions;
+import com.mongodb.client.model.WriteModel;
+
 import com.mongodb.kafka.connect.sink.cdc.CdcOperation;
 import com.mongodb.kafka.connect.sink.cdc.debezium.OperationType;
 import com.mongodb.kafka.connect.sink.converter.SinkDocument;
-import org.apache.kafka.connect.errors.DataException;
-import org.bson.BsonDocument;
 
 public class AttunityRdbmsUpdate implements CdcOperation {
 
-    private static final UpdateOptions UPDATE_OPTIONS = new UpdateOptions().upsert(true);
+  private static final UpdateOptions UPDATE_OPTIONS = new UpdateOptions().upsert(true);
 
-    @Override
-    public WriteModel<BsonDocument> perform(final SinkDocument doc) {
+  @Override
+  public WriteModel<BsonDocument> perform(final SinkDocument doc) {
 
-        BsonDocument valueDoc = doc.getValueDoc().orElseThrow(
-                () -> new DataException("Error: value doc must not be missing for update operation")
-        );
+    BsonDocument valueDoc =
+        doc.getValueDoc()
+            .orElseThrow(
+                () ->
+                    new DataException("Error: value doc must not be missing for update operation"));
 
-        try{
-            //patch contains idempotent change only to update original document with
-            BsonDocument keyDoc = doc.getKeyDoc().orElseThrow(
-                    () -> new DataException("Error: key doc must not be missing for update operation"));
-            BsonDocument filterDoc = AttunityRdbmsHandler.generateFilterDoc(keyDoc, valueDoc, OperationType.UPDATE);
-            BsonDocument updateDoc = AttunityRdbmsHandler.generateUpdateDoc(keyDoc,valueDoc,filterDoc);
-            if (updateDoc.getDocument("$set").keySet().isEmpty()){
-                return null;
-            }
-            return new UpdateOneModel<>(filterDoc, updateDoc, UPDATE_OPTIONS);
-        } catch (Exception exc) {
-            throw new DataException(exc);
-        }
+    try {
+      // patch contains idempotent change only to update original document with
+      BsonDocument keyDoc =
+          doc.getKeyDoc()
+              .orElseThrow(
+                  () ->
+                      new DataException("Error: key doc must not be missing for update operation"));
+      BsonDocument filterDoc =
+          AttunityRdbmsHandler.generateFilterDoc(keyDoc, valueDoc, OperationType.UPDATE);
+      BsonDocument updateDoc = AttunityRdbmsHandler.generateUpdateDoc(keyDoc, valueDoc, filterDoc);
+      if (updateDoc.getDocument("$set").keySet().isEmpty()) {
+        return null;
+      }
+      return new UpdateOneModel<>(filterDoc, updateDoc, UPDATE_OPTIONS);
+    } catch (Exception exc) {
+      throw new DataException(exc);
     }
+  }
 }

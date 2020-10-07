@@ -40,7 +40,7 @@ plugins {
 }
 
 group = "org.mongodb.kafka"
-version = "1.2.0-SNAPSHOT"
+version = "1.3.0-SNAPSHOT"
 description = "The official MongoDB Apache Kafka Connect Connector."
 
 java {
@@ -51,30 +51,31 @@ java {
 repositories {
     mavenCentral()
     maven("http://packages.confluent.io/maven/")
+    maven("https://jitpack.io")
 }
 
 extra.apply {
     set("mongodbDriverVersion", "[3.11.0,3.12.99)")
-    set("kafkaVersion", "2.1.0")
-    set("confluentVersion", "5.1.0")
+    set("kafkaVersion", "2.5.0")
+    set("avroVersion", "1.9.2")
 
     // Testing dependencies
     set("junitJupiterVersion", "5.4.0")
     set("junitPlatformVersion", "1.4.0")
     set("hamcrestVersion", "2.0.0.0")
     set("mockitoVersion", "2.27.0")
-    set("connectUtilsVersion", "0.4+")
 
     // Integration test dependencies
-    set("avroVersion", "1.8.2")
-    set("scalaVersion", "2.11.12")
-    set("scalaMajMinVersion", "2.11")
+    set("confluentVersion", "5.5.1")
+    set("scalaVersion", "2.12")
     set("curatorVersion", "2.9.0")
+    set("connectUtilsVersion", "0.4+")
 }
 
 dependencies {
     api("org.apache.kafka:connect-api:${extra["kafkaVersion"]}")
     implementation("org.mongodb:mongodb-driver-sync:${extra["mongodbDriverVersion"]}")
+    implementation("org.apache.avro:avro:${extra["avroVersion"]}")
 
     // Unit Tests
     testImplementation("org.junit.jupiter:junit-jupiter:${extra["junitJupiterVersion"]}")
@@ -83,18 +84,19 @@ dependencies {
     testImplementation("org.mockito:mockito-junit-jupiter:${extra["mockitoVersion"]}")
 
     // Integration Tests
-    testImplementation("org.apache.avro:avro:${extra["avroVersion"]}")
     testImplementation("org.apache.curator:curator-test:${extra["curatorVersion"]}")
-    testImplementation("org.apache.kafka:connect-runtime:${extra["kafkaVersion"]}")
-    testImplementation("org.apache.kafka:kafka-clients:${extra["kafkaVersion"]}:test")
-    testImplementation("org.apache.kafka:kafka-streams:${extra["kafkaVersion"]}")
-    testImplementation("org.apache.kafka:kafka-streams:${extra["kafkaVersion"]}:test")
-    testImplementation("org.scala-lang:scala-library:${extra["scalaVersion"]}")
-    testImplementation("org.apache.kafka:kafka_${extra["scalaMajMinVersion"]}:${extra["kafkaVersion"]}")
-    testImplementation("org.apache.kafka:kafka_${extra["scalaMajMinVersion"]}:${extra["kafkaVersion"]}:test")
-    testImplementation("io.confluent:kafka-connect-avro-converter:${extra["confluentVersion"]}")
-    testImplementation("io.confluent:kafka-schema-registry:${extra["confluentVersion"]}")
     testImplementation("com.github.jcustenborder.kafka.connect:connect-utils:${extra["connectUtilsVersion"]}")
+    testImplementation(platform("io.confluent:kafka-schema-registry-parent:${extra["confluentVersion"]}"))
+    testImplementation(group = "com.google.guava", name = "guava")
+    testImplementation(group = "io.confluent", name = "kafka-schema-registry")
+    testImplementation(group = "io.confluent", name = "kafka-connect-avro-converter")
+    testImplementation(group = "org.apache.kafka", name = "connect-runtime")
+    testImplementation(group = "org.apache.kafka", name = "kafka-clients", classifier = "test")
+    testImplementation(group = "org.apache.kafka", name = "kafka-streams")
+    testImplementation(group = "org.apache.kafka", name = "kafka-streams", classifier = "test")
+    testImplementation(group = "org.scala-lang", name = "scala-library")
+    testImplementation(group = "org.apache.kafka", name = "kafka_${extra["scalaVersion"]}")
+    testImplementation(group = "org.apache.kafka", name = "kafka_${extra["scalaVersion"]}", classifier = "test")
 }
 
 tasks.withType<JavaCompile> {
@@ -202,10 +204,12 @@ tasks.withType<com.github.spotbugs.SpotBugsTask> {
 // Spotless is used to lint and reformat source files.
 spotless {
     java {
+        googleJavaFormat()
         importOrder("java", "io", "org", "org.bson", "com.mongodb", "com.mongodb.kafka", "")
         removeUnusedImports() // removes any unused imports
         trimTrailingWhitespace()
         endWithNewline()
+        indentWithSpaces()
     }
 
     kotlinGradle {
@@ -221,6 +225,10 @@ spotless {
         indentWithSpaces()
         endWithNewline()
     }
+}
+
+tasks.named("compileJava") {
+    dependsOn(":spotlessApply")
 }
 
 /*
