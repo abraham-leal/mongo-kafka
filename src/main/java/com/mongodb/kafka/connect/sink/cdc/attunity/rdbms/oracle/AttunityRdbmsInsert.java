@@ -22,49 +22,44 @@
 
 package com.mongodb.kafka.connect.sink.cdc.attunity.rdbms.oracle;
 
+import org.apache.kafka.connect.errors.DataException;
+
+import org.bson.BsonDocument;
+
 import com.mongodb.client.model.ReplaceOneModel;
 import com.mongodb.client.model.ReplaceOptions;
 import com.mongodb.client.model.WriteModel;
+
 import com.mongodb.kafka.connect.sink.cdc.CdcOperation;
 import com.mongodb.kafka.connect.sink.cdc.debezium.OperationType;
 import com.mongodb.kafka.connect.sink.converter.SinkDocument;
-import org.apache.kafka.connect.errors.DataException;
-import org.bson.BsonDocument;
-
-import java.util.Iterator;
 
 public class AttunityRdbmsInsert implements CdcOperation {
 
-    private static final ReplaceOptions REPLACE_OPTIONS = new ReplaceOptions().upsert(true);
+  private static final ReplaceOptions REPLACE_OPTIONS = new ReplaceOptions().upsert(true);
 
-    @Override
-    public WriteModel<BsonDocument> perform(final SinkDocument doc) {
+  @Override
+  public WriteModel<BsonDocument> perform(final SinkDocument doc) {
 
-        BsonDocument keyDoc = doc.getKeyDoc().orElseThrow(
-                () -> new DataException("Error: key doc must not be missing for insert operation")
-        );
+    BsonDocument keyDoc =
+        doc.getKeyDoc()
+            .orElseThrow(
+                () -> new DataException("Error: key doc must not be missing for insert operation"));
 
-        BsonDocument valueDoc = doc.getValueDoc().orElseThrow(
-                () -> new DataException("Error: value doc must not be missing for insert operation")
-        );
+    BsonDocument valueDoc =
+        doc.getValueDoc()
+            .orElseThrow(
+                () ->
+                    new DataException("Error: value doc must not be missing for insert operation"));
 
-        try {
-
-            // Take out null values from inserts/refreshes
-            for (Iterator<?> it = valueDoc.values().iterator();
-                 it.hasNext();) {
-                if (it.next() == null) {
-                    it.remove();
-                }
-            }
-
-            BsonDocument filterDoc = AttunityRdbmsHandler.generateFilterDoc(keyDoc, valueDoc, OperationType.CREATE);
-            BsonDocument upsertDoc = AttunityRdbmsHandler.generateUpsertOrReplaceDoc(keyDoc, valueDoc, filterDoc);
-            return new ReplaceOneModel<>(filterDoc, upsertDoc, REPLACE_OPTIONS);
-        } catch (Exception exc) {
-            throw new DataException(exc);
-        }
-
+    try {
+      BsonDocument filterDoc =
+          AttunityRdbmsHandler.generateFilterDoc(keyDoc, valueDoc, OperationType.CREATE);
+      BsonDocument upsertDoc =
+          AttunityRdbmsHandler.generateUpsertOrReplaceDoc(keyDoc, valueDoc, filterDoc);
+      return new ReplaceOneModel<>(filterDoc, upsertDoc, REPLACE_OPTIONS);
+    } catch (Exception exc) {
+      throw new DataException(exc);
     }
-
+  }
 }
