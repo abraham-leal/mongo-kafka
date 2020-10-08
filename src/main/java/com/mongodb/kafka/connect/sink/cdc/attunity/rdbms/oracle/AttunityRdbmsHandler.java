@@ -22,6 +22,7 @@
 
 package com.mongodb.kafka.connect.sink.cdc.attunity.rdbms.oracle;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -181,7 +182,7 @@ public class AttunityRdbmsHandler extends AttunityWBACdcHandler {
               getConfig().originals().get("errors.deadletterqueue.topic.name").toString(),
               keyDoc.toJson(),
               valueDoc.toJson());
-      badRecord.headers().add("stacktrace", e.toString().getBytes());
+      badRecord.headers().add("stacktrace", e.toString().getBytes(StandardCharsets.UTF_8));
       dlqProducer.send(badRecord);
       LOGGER.info("Bad Record, sending to DLQ...");
       return Optional.empty();
