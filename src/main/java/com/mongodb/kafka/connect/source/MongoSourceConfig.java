@@ -230,6 +230,16 @@ public class MongoSourceConfig extends AbstractConfig {
           + "Example: `[{\"$match\": {\"closed\": \"false\"}}]`";
   private static final String COPY_EXISTING_PIPELINE_DEFAULT = "";
 
+  public static final String COPY_EXISTING_NAMESPACE_REGEX_CONFIG = "copy.existing.namespace.regex";
+  private static final String COPY_EXISTING_NAMESPACE_REGEX_DISPLAY =
+      "Copy existing namespace regex";
+  private static final String COPY_EXISTING_NAMESPACE_REGEX_DOC =
+      "Use a regular expression to define from which existing namespaces data should be copied from."
+          + " A namespace is the database name and collection separated by a period e.g. `database.collection`.\n"
+          + " Example: The following regular expression will only include collections starting with `a` "
+          + "in the `demo` database: `demo\\.a.*`";
+  private static final String COPY_EXISTING_NAMESPACE_REGEX_DEFAULT = "";
+
   public static final String ERRORS_TOLERANCE_CONFIG = "errors.tolerance";
   public static final String ERRORS_TOLERANCE_DISPLAY = "Error Tolerance";
   public static final ErrorTolerance ERRORS_TOLERANCE_DEFAULT = ErrorTolerance.NONE;
@@ -272,6 +282,13 @@ public class MongoSourceConfig extends AbstractConfig {
           + " Defaults to '"
           + HEARTBEAT_TOPIC_NAME_DEFAULT
           + "'.";
+
+  public static final String OFFSET_PARTITION_NAME_CONFIG = "offset.partition.name";
+  public static final String OFFSET_PARTITION_NAME_DISPLAY = "Offset partition name";
+  public static final String OFFSET_PARTITION_NAME_DEFAULT = "";
+  public static final String OFFSET_PARTITION_NAME_DOC =
+      "Use a custom offset partition name. If blank the default partition name based on the "
+          + "connection details will be used.";
 
   public static final ConfigDef CONFIG = createConfigDef();
   private static final List<Consumer<MongoSourceConfig>> INITIALIZERS =
@@ -659,6 +676,18 @@ public class MongoSourceConfig extends AbstractConfig {
         Width.MEDIUM,
         COPY_EXISTING_PIPELINE_DISPLAY);
 
+    configDef.define(
+        COPY_EXISTING_NAMESPACE_REGEX_CONFIG,
+        Type.STRING,
+        COPY_EXISTING_NAMESPACE_REGEX_DEFAULT,
+        Validators.emptyString().or(Validators.isAValidRegex()),
+        Importance.MEDIUM,
+        COPY_EXISTING_NAMESPACE_REGEX_DOC,
+        group,
+        ++orderInGroup,
+        Width.MEDIUM,
+        COPY_EXISTING_NAMESPACE_REGEX_DISPLAY);
+
     group = "Errors";
     orderInGroup = 0;
 
@@ -719,6 +748,20 @@ public class MongoSourceConfig extends AbstractConfig {
         ++orderInGroup,
         Width.MEDIUM,
         HEARTBEAT_TOPIC_NAME_DISPLAY);
+
+    group = "Partition";
+    orderInGroup = 0;
+
+    configDef.define(
+        OFFSET_PARTITION_NAME_CONFIG,
+        Type.STRING,
+        OFFSET_PARTITION_NAME_DEFAULT,
+        Importance.MEDIUM,
+        OFFSET_PARTITION_NAME_DOC,
+        group,
+        ++orderInGroup,
+        Width.SHORT,
+        OFFSET_PARTITION_NAME_DISPLAY);
 
     return configDef;
   }

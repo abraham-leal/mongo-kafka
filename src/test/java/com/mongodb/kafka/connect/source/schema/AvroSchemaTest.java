@@ -233,11 +233,4 @@ public class AvroSchemaTest {
   private Executable createSchema(final String jsonSchema) {
     return () -> AvroSchema.validateJsonSchema(jsonSchema);
   }
-
-  @Test
-  void testAvroSchemaField() {
-    String testingField =
-        "{\"type\":\"record\",\"name\":\"keySchema\",\"fields\":[{\"name\":\"fullDocument.documentKey\", \"type\":\"string\"}]}";
-    assertThrows(ConnectException.class, createSchema(testingField));
-  }
 }

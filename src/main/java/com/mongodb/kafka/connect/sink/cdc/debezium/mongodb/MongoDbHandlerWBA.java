@@ -64,9 +64,17 @@ public class MongoDbHandlerWBA extends DebeziumWBACdcHandler {
   @Override
   public Optional<WriteModel<BsonDocument>> handle(final SinkDocument doc) {
 
-    BsonDocument keyDoc =
-        doc.getKeyDoc()
-            .orElseThrow(() -> new DataException("Key document must not be missing for CDC mode"));
+    BsonDocument keyDoc = doc.getKeyDoc().orElseGet(BsonDocument::new);
+
+    if (keyDoc.isEmpty()) {
+      if (getConfig().logErrors()) {
+        LOGGER.error("Key document must not be missing for CDC mode {}", doc);
+      }
+      if (getConfig().tolerateErrors()) {
+        return Optional.empty();
+      }
+      throw new DataException("Key document must not be missing for CDC mode");
+    }
 
     BsonDocument valueDoc = doc.getValueDoc().orElseGet(BsonDocument::new);
 
@@ -74,7 +82,7 @@ public class MongoDbHandlerWBA extends DebeziumWBACdcHandler {
       LOGGER.debug("Skipping debezium tombstone event for kafka topic compaction");
       return Optional.empty();
     }
-    return Optional.of(getCdcOperation(valueDoc).perform(doc));
+    return handleOperation(() -> Optional.of(getCdcOperation(valueDoc).perform(doc)));
   }
 
   @Override
@@ -95,6 +103,6 @@ public class MongoDbHandlerWBA extends DebeziumWBACdcHandler {
     LOGGER.debug("key: " + keyDoc.toString());
     LOGGER.debug("value: " + valueDoc.toString());
 
-    return Optional.of(getCdcOperation(valueDoc).perform(doc));
+    return handleOperation(() -> Optional.of(getCdcOperation(valueDoc).perform(doc)));
   }
 }
