@@ -121,11 +121,18 @@ public class AttunityRdbmsHandler extends AttunityWBACdcHandler {
 
     // Remove Nulls from Values to insert
     if (removeNullsEnabled && opToPerform instanceof AttunityRdbmsInsert) {
-      valueDoc
-          .getDocument(JSON_DOC_WRAPPER_FIELD)
-          .getDocument(JSON_DOC_AFTER_FIELD)
-          .values()
-          .removeAll(Collections.singleton(SAMPLENULL));
+      if (valueDoc.containsKey(JSON_DOC_WRAPPER_FIELD)) {
+        valueDoc
+            .getDocument(JSON_DOC_WRAPPER_FIELD)
+            .getDocument(JSON_DOC_AFTER_FIELD)
+            .values()
+            .removeAll(Collections.singleton(SAMPLENULL));
+      } else {
+        valueDoc
+            .getDocument(JSON_DOC_AFTER_FIELD)
+            .values()
+            .removeAll(Collections.singleton(SAMPLENULL));
+      }
     }
 
     return Optional.ofNullable(opToPerform.perform(new SinkDocument(keyDoc, valueDoc)));
@@ -168,11 +175,18 @@ public class AttunityRdbmsHandler extends AttunityWBACdcHandler {
 
       // Remove Nulls from Values to insert
       if (removeNullsEnabled && opToPerform instanceof AttunityRdbmsInsert) {
-        valueDoc
-            .getDocument(JSON_DOC_WRAPPER_FIELD)
-            .getDocument(JSON_DOC_AFTER_FIELD)
-            .values()
-            .removeAll(Collections.singleton(SAMPLENULL));
+        if (valueDoc.containsKey(JSON_DOC_WRAPPER_FIELD)) {
+          valueDoc
+              .getDocument(JSON_DOC_WRAPPER_FIELD)
+              .getDocument(JSON_DOC_AFTER_FIELD)
+              .values()
+              .removeAll(Collections.singleton(SAMPLENULL));
+        } else {
+          valueDoc
+              .getDocument(JSON_DOC_AFTER_FIELD)
+              .values()
+              .removeAll(Collections.singleton(SAMPLENULL));
+        }
       }
 
       return Optional.ofNullable(opToPerform.perform(new SinkDocument(keyDoc, valueDoc)));

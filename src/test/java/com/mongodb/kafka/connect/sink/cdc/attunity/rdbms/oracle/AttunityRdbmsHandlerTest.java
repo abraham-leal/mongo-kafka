@@ -403,6 +403,23 @@ class AttunityRdbmsHandlerTest {
                   ((ReplaceOneModel<BsonDocument>) result.get()).getReplacement().get("peep"));
             }),
         dynamicTest(
+            "test operation w/ no attunity wrapper " + OperationType.CREATE,
+            () -> {
+              Optional<WriteModel<BsonDocument>> result =
+                  customMapping.handle(
+                      new SinkDocument(
+                          BsonDocument.parse("{id: 1234}"),
+                          BsonDocument.parse(
+                              "{ data: {peep: null, foo: 'bar'}, "
+                                  + "headers: { operation: 'INSERT'}}}")));
+              assertTrue(result.isPresent());
+              assertTrue(
+                  result.get() instanceof ReplaceOneModel,
+                  "result expected to be of type ReplaceOneModel");
+              assertNull(
+                  ((ReplaceOneModel<BsonDocument>) result.get()).getReplacement().get("peep"));
+            }),
+        dynamicTest(
             "test operation " + OperationType.UPDATE,
             () -> {
               Optional<WriteModel<BsonDocument>> result =
