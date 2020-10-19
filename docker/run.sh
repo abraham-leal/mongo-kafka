@@ -105,7 +105,7 @@ echo -e "\nAdding MongoDB Kafka Sink Connector for the 'pageviews' topic into th
 curl -X POST -H "Content-Type: application/json" --data '
   {"name": "mongo-sink",
    "config": {
-     "connector.class":"com.mongodb.kafka.connect.MongoSinkConnector",
+     "connector.class":"com.mongodb.kafka.connect.WBAMongoSinkConnector",
      "tasks.max":"1",
      "topics":"pageviews",
      "connection.uri":"mongodb://mongo1:27017,mongo2:27017,mongo3:27017",
@@ -122,7 +122,7 @@ curl -X POST -H "Content-Type: application/json" --data '
   {"name": "mongo-source",
    "config": {
      "tasks.max":"1",
-     "connector.class":"com.mongodb.kafka.connect.MongoSourceConnector",
+     "connector.class":"com.mongodb.kafka.connect.WBAMongoSourceConnector",
      "connection.uri":"mongodb://mongo1:27017,mongo2:27017,mongo3:27017",
      "topic.prefix":"mongo",
      "database":"test",
