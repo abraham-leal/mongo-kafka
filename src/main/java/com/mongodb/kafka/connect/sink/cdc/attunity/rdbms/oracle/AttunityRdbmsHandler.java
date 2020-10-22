@@ -23,7 +23,12 @@
 package com.mongodb.kafka.connect.sink.cdc.attunity.rdbms.oracle;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -33,7 +38,11 @@ import org.slf4j.LoggerFactory;
 
 import org.bson.BsonDocument;
 import org.bson.BsonInvalidOperationException;
+import org.bson.BsonNull;
 import org.bson.BsonObjectId;
+import org.bson.BsonValue;
+
+import com.mongodb.client.model.WriteModel;
 
 import com.mongodb.kafka.connect.sink.MongoSinkTopicConfig;
 import com.mongodb.kafka.connect.sink.cdc.CdcOperation;
@@ -45,23 +54,28 @@ public class AttunityRdbmsHandler extends AttunityWBACdcHandler {
   private static final String JSON_DOC_BEFORE_FIELD = "beforeData";
   private static final String JSON_DOC_AFTER_FIELD = "data";
   private static final String JSON_DOC_WRAPPER_FIELD = "message";
-  private boolean keyExtractionEnabled = false;
-  private java.util.List<String> fieldsToExtract = new java.util.ArrayList<>();
+  private final boolean keyExtractionEnabled =
+      getConfig().originals().get("key.extraction.enabled") != null
+          && getConfig().originalsStrings().get("key.extraction.enabled").equalsIgnoreCase("true");
+  private final boolean removeNullsEnabled =
+      getConfig().originals().get("remove.nulls.enabled") != null
+          && getConfig().originalsStrings().get("remove.nulls.enabled").equalsIgnoreCase("true");
+  private final List<String> fieldsToExtract =
+      Arrays.asList(
+          getConfig()
+              .getString(MongoSinkTopicConfig.KEY_PROJECTION_LIST_CONFIG)
+              .split("\\s*,\\s*"));
+  private static final BsonValue SAMPLENULL = new BsonNull();
   private static final Logger LOGGER = LoggerFactory.getLogger(AttunityRdbmsHandler.class);
-  private static final java.util.Map<
-          com.mongodb.kafka.connect.sink.cdc.debezium.OperationType,
-          com.mongodb.kafka.connect.sink.cdc.CdcOperation>
-      DEFAULT_OPERATIONS =
-          new java.util.HashMap<
-              com.mongodb.kafka.connect.sink.cdc.debezium.OperationType,
-              com.mongodb.kafka.connect.sink.cdc.CdcOperation>() {
-            {
-              put(OperationType.CREATE, new AttunityRdbmsInsert());
-              put(OperationType.READ, new AttunityRdbmsInsert());
-              put(OperationType.UPDATE, new AttunityRdbmsUpdate());
-              put(OperationType.DELETE, new AttunityRdbmsDelete());
-            }
-          };
+  private static final Map<OperationType, CdcOperation> DEFAULT_OPERATIONS =
+      new HashMap<OperationType, CdcOperation>() {
+        {
+          put(OperationType.CREATE, new AttunityRdbmsInsert());
+          put(OperationType.READ, new AttunityRdbmsInsert());
+          put(OperationType.UPDATE, new AttunityRdbmsUpdate());
+          put(OperationType.DELETE, new AttunityRdbmsDelete());
+        }
+      };
 
   public AttunityRdbmsHandler(final MongoSinkTopicConfig config) {
     this(config, DEFAULT_OPERATIONS);
@@ -70,33 +84,18 @@ public class AttunityRdbmsHandler extends AttunityWBACdcHandler {
   public AttunityRdbmsHandler(
       final MongoSinkTopicConfig config, final Map<OperationType, CdcOperation> operations) {
     super(config);
-    keyExtractionEnabled =
-        getConfig().originals().get("key.extraction.enabled") != null
-            && getConfig()
-                .originalsStrings()
-                .get("key.extraction.enabled")
-                .equalsIgnoreCase("true");
-    if (keyExtractionEnabled) {
-      LOGGER.info("Key extraction from value is enabled!");
-      fieldsToExtract =
-          java.util.Arrays.asList(
-              getConfig()
-                  .getString(MongoSinkTopicConfig.KEY_PROJECTION_LIST_CONFIG)
-                  .split("\\s*,\\s*"));
-    }
     registerOperations(operations);
   }
 
   @Override
-  public java.util.Optional<com.mongodb.client.model.WriteModel<org.bson.BsonDocument>> handle(
-      final SinkDocument doc) {
+  public Optional<WriteModel<BsonDocument>> handle(final SinkDocument doc) {
     BsonDocument keyDoc = new BsonDocument();
 
     BsonDocument valueDoc = doc.getValueDoc().orElseGet(BsonDocument::new);
 
     if (valueDoc.isEmpty()) {
       LOGGER.debug("skipping attunity tombstone event for kafka topic compaction");
-      return java.util.Optional.empty();
+      return Optional.empty();
     }
 
     if (keyExtractionEnabled) {
@@ -118,12 +117,29 @@ public class AttunityRdbmsHandler extends AttunityWBACdcHandler {
       keyDoc = doc.getKeyDoc().orElseGet(BsonDocument::new);
     }
 
-    return java.util.Optional.ofNullable(
-        getCdcOperation(valueDoc).perform(new SinkDocument(keyDoc, valueDoc)));
+    CdcOperation opToPerform = getCdcOperation(valueDoc);
+
+    // Remove Nulls from Values to insert
+    if (removeNullsEnabled && opToPerform instanceof AttunityRdbmsInsert) {
+      if (valueDoc.containsKey(JSON_DOC_WRAPPER_FIELD)) {
+        valueDoc
+            .getDocument(JSON_DOC_WRAPPER_FIELD)
+            .getDocument(JSON_DOC_AFTER_FIELD)
+            .values()
+            .removeAll(Collections.singleton(SAMPLENULL));
+      } else {
+        valueDoc
+            .getDocument(JSON_DOC_AFTER_FIELD)
+            .values()
+            .removeAll(Collections.singleton(SAMPLENULL));
+      }
+    }
+
+    return Optional.ofNullable(opToPerform.perform(new SinkDocument(keyDoc, valueDoc)));
   }
 
   @Override
-  public java.util.Optional<com.mongodb.client.model.WriteModel<org.bson.BsonDocument>> handle(
+  public Optional<WriteModel<BsonDocument>> handle(
       final SinkDocument doc, final KafkaProducer<String, String> dlqProducer) {
 
     BsonDocument keyDoc = new BsonDocument();
@@ -132,7 +148,7 @@ public class AttunityRdbmsHandler extends AttunityWBACdcHandler {
 
     if (valueDoc.isEmpty()) {
       LOGGER.debug("skipping attunity tombstone event for kafka topic compaction");
-      return java.util.Optional.empty();
+      return Optional.empty();
     }
 
     try {
@@ -155,8 +171,25 @@ public class AttunityRdbmsHandler extends AttunityWBACdcHandler {
         keyDoc = doc.getKeyDoc().orElseGet(BsonDocument::new);
       }
 
-      return java.util.Optional.ofNullable(
-          getCdcOperation(valueDoc).perform(new SinkDocument(keyDoc, valueDoc)));
+      CdcOperation opToPerform = getCdcOperation(valueDoc);
+
+      // Remove Nulls from Values to insert
+      if (removeNullsEnabled && opToPerform instanceof AttunityRdbmsInsert) {
+        if (valueDoc.containsKey(JSON_DOC_WRAPPER_FIELD)) {
+          valueDoc
+              .getDocument(JSON_DOC_WRAPPER_FIELD)
+              .getDocument(JSON_DOC_AFTER_FIELD)
+              .values()
+              .removeAll(Collections.singleton(SAMPLENULL));
+        } else {
+          valueDoc
+              .getDocument(JSON_DOC_AFTER_FIELD)
+              .values()
+              .removeAll(Collections.singleton(SAMPLENULL));
+        }
+      }
+
+      return Optional.ofNullable(opToPerform.perform(new SinkDocument(keyDoc, valueDoc)));
     } catch (Exception e) {
       ProducerRecord<String, String> badRecord =
           new ProducerRecord<>(
@@ -166,7 +199,7 @@ public class AttunityRdbmsHandler extends AttunityWBACdcHandler {
       badRecord.headers().add("stacktrace", e.toString().getBytes(StandardCharsets.UTF_8));
       dlqProducer.send(badRecord);
       LOGGER.info("Bad Record, sending to DLQ...");
-      return java.util.Optional.empty();
+      return Optional.empty();
     }
   }
 

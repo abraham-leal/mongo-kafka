@@ -23,6 +23,7 @@ import static java.util.Collections.emptyMap;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.DynamicTest.dynamicTest;
@@ -149,8 +150,8 @@ class AttunityRdbmsHandlerTest {
             new SinkDocument(
                 BsonDocument.parse("{id: 1234}"),
                 BsonDocument.parse(
-                    "{message : { data: {id: 1234, foo: 'bar'}, beforeData: "
-                        + "{id: 1234, foo: 'bar'}, headers: { operation: 'UPDATE'}}}"))),
+                    "{message : { data: {id: 1234, foo: 'bar'}, "
+                        + "beforeData: {id: 1234, foo: 'bar'}, headers: { operation: 'UPDATE'}}}"))),
         "No-op update must result in Optional.empty()");
   }
 
@@ -167,7 +168,8 @@ class AttunityRdbmsHandlerTest {
                       new SinkDocument(
                           BsonDocument.parse("{id: 1234}"),
                           BsonDocument.parse(
-                              "{message: { data: {id: 1234, foo: 'bar'}, headers: { operation: 'INSERT'}}}")));
+                              "{message: { data: {id: 1234, foo: 'bar'}, "
+                                  + "headers: { operation: 'INSERT'}}}")));
               assertTrue(result.isPresent());
               assertTrue(
                   result.get() instanceof ReplaceOneModel,
@@ -181,7 +183,8 @@ class AttunityRdbmsHandlerTest {
                       new SinkDocument(
                           BsonDocument.parse("{id: 1234}"),
                           BsonDocument.parse(
-                              "{message : { data: {id: 1234, foo: 'bar'}, headers: { operation: 'READ'}}}")));
+                              "{message : { data: {id: 1234, foo: 'bar'}, "
+                                  + "headers: { operation: 'READ'}}}")));
               assertTrue(result.isPresent());
               assertTrue(
                   result.get() instanceof ReplaceOneModel,
@@ -195,8 +198,8 @@ class AttunityRdbmsHandlerTest {
                       new SinkDocument(
                           BsonDocument.parse("{id: 1234}"),
                           BsonDocument.parse(
-                              "{message : { data: {id: 1234, foo: 'bar'}, beforeData: "
-                                  + "{id: 4321, foo: 'foo'}, headers: { operation: 'UPDATE'}}}")));
+                              "{message : { data: {id: 1234, foo: 'bar'}, "
+                                  + "beforeData: {id: 4321, foo: 'foo'}, headers: { operation: 'UPDATE'}}}")));
               assertTrue(result.isPresent());
               assertTrue(
                   result.get() instanceof UpdateOneModel,
@@ -210,7 +213,8 @@ class AttunityRdbmsHandlerTest {
                       new SinkDocument(
                           BsonDocument.parse("{id: 1234}"),
                           BsonDocument.parse(
-                              "{message : { data: {id: 1234, foo: 'bar'}, headers: { operation: 'DELETE'}}}")));
+                              "{message : { data: {id: 1234, foo: 'bar'}, "
+                                  + "headers: { operation: 'DELETE'}}}")));
               assertTrue(result.isPresent(), "write model result must be present");
               assertTrue(
                   result.get() instanceof DeleteOneModel,
@@ -231,7 +235,8 @@ class AttunityRdbmsHandlerTest {
                       new SinkDocument(
                           BsonDocument.parse("{id: 1234}"),
                           BsonDocument.parse(
-                              "{data: {id: 1234, foo: 'bar'}, headers: { operation: 'INSERT'}}")));
+                              "{data: {id: 1234, foo: 'bar'}, "
+                                  + "headers: { operation: 'INSERT'}}")));
               assertTrue(result.isPresent());
               assertTrue(
                   result.get() instanceof ReplaceOneModel,
@@ -245,7 +250,8 @@ class AttunityRdbmsHandlerTest {
                       new SinkDocument(
                           BsonDocument.parse("{id: 1234}"),
                           BsonDocument.parse(
-                              "{ data: {id: 1234, foo: 'bar'}, headers: { operation: 'READ'}}")));
+                              "{ data: {id: 1234, foo: 'bar'}, "
+                                  + "headers: { operation: 'READ'}}")));
               assertTrue(result.isPresent());
               assertTrue(
                   result.get() instanceof ReplaceOneModel,
@@ -259,8 +265,8 @@ class AttunityRdbmsHandlerTest {
                       new SinkDocument(
                           BsonDocument.parse("{id: 1234}"),
                           BsonDocument.parse(
-                              "{data: {id: 1234, foo: 'bar'}, beforeData: {id: 4321, foo: 'foo'}, headers: "
-                                  + "{ operation: 'UPDATE'}}")));
+                              "{data: {id: 1234, foo: 'bar'}, "
+                                  + "beforeData: {id: 4321, foo: 'foo'}, headers: { operation: 'UPDATE'}}")));
               assertTrue(result.isPresent());
               assertTrue(
                   result.get() instanceof UpdateOneModel,
@@ -274,7 +280,8 @@ class AttunityRdbmsHandlerTest {
                       new SinkDocument(
                           BsonDocument.parse("{id: 1234}"),
                           BsonDocument.parse(
-                              "{data: {id: 1234, foo: 'bar'}, headers: { operation: 'DELETE'}}")));
+                              "{data: {id: 1234, foo: 'bar'}, "
+                                  + "headers: { operation: 'DELETE'}}")));
               assertTrue(result.isPresent(), "write model result must be present");
               assertTrue(
                   result.get() instanceof DeleteOneModel,
@@ -299,7 +306,8 @@ class AttunityRdbmsHandlerTest {
                       new SinkDocument(
                           BsonDocument.parse("{id: 1234}"),
                           BsonDocument.parse(
-                              "{message: { data: {peep: 1234, foo: 'bar'}, headers: { operation: 'INSERT'}}}")));
+                              "{message: { data: {peep: 1234, foo: 'bar'}, "
+                                  + "headers: { operation: 'INSERT'}}}")));
               assertTrue(result.isPresent());
               assertTrue(
                   result.get() instanceof ReplaceOneModel,
@@ -319,7 +327,8 @@ class AttunityRdbmsHandlerTest {
                       new SinkDocument(
                           BsonDocument.parse("{id: 1234}"),
                           BsonDocument.parse(
-                              "{message : { data: {peep: 1234, foo: 'bar'}, headers: { operation: 'READ'}}}")));
+                              "{message : { data: {peep: 1234, foo: 'bar'}, "
+                                  + "headers: { operation: 'READ'}}}")));
               assertTrue(result.isPresent());
               assertTrue(
                   result.get() instanceof ReplaceOneModel,
@@ -339,8 +348,8 @@ class AttunityRdbmsHandlerTest {
                       new SinkDocument(
                           BsonDocument.parse("{id: 1234}"),
                           BsonDocument.parse(
-                              "{message : { data: {peep: 1234, foo: 'bar'}, beforeData: "
-                                  + "{id: 4321, foo: 'foo'}, headers: { operation: 'UPDATE'}}}")));
+                              "{message : { data: {peep: 1234, foo: 'bar'}, "
+                                  + "beforeData: {id: 4321, foo: 'foo'}, headers: { operation: 'UPDATE'}}}")));
               assertTrue(result.isPresent());
               assertTrue(
                   result.get() instanceof UpdateOneModel,
@@ -357,7 +366,8 @@ class AttunityRdbmsHandlerTest {
                       new SinkDocument(
                           BsonDocument.parse("{id: 1234}"),
                           BsonDocument.parse(
-                              "{message : { data: {peep: 1234, foo: 'bar'}, headers: { operation: 'DELETE'}}}")));
+                              "{message : { data: {peep: 1234, foo: 'bar'}, "
+                                  + "headers: { operation: 'DELETE'}}}")));
               assertTrue(result.isPresent(), "write model result must be present");
               assertTrue(
                   result.get() instanceof DeleteOneModel,
@@ -365,6 +375,68 @@ class AttunityRdbmsHandlerTest {
               assertEquals(
                   new BsonDocument().append("_id", BsonDocument.parse(expectedKey)),
                   (((DeleteOneModel<BsonDocument>) result.get()).getFilter()));
+            }));
+  }
+
+  @TestFactory
+  @DisplayName("when remove nulls is enabled, no nulls in value")
+  Stream<DynamicTest> testRemoveNullsFromValue() {
+    String customConfig = "{\"remove.nulls.enabled\" : \"true\"}";
+    AttunityRdbmsHandler customMapping = new AttunityRdbmsHandler(createTopicConfig(customConfig));
+
+    return Stream.of(
+        dynamicTest(
+            "test operation " + OperationType.CREATE,
+            () -> {
+              Optional<WriteModel<BsonDocument>> result =
+                  customMapping.handle(
+                      new SinkDocument(
+                          BsonDocument.parse("{id: 1234}"),
+                          BsonDocument.parse(
+                              "{message: { data: {peep: null, foo: 'bar'}, "
+                                  + "headers: { operation: 'INSERT'}}}")));
+              assertTrue(result.isPresent());
+              assertTrue(
+                  result.get() instanceof ReplaceOneModel,
+                  "result expected to be of type ReplaceOneModel");
+              assertNull(
+                  ((ReplaceOneModel<BsonDocument>) result.get()).getReplacement().get("peep"));
+            }),
+        dynamicTest(
+            "test operation w/ no attunity wrapper " + OperationType.CREATE,
+            () -> {
+              Optional<WriteModel<BsonDocument>> result =
+                  customMapping.handle(
+                      new SinkDocument(
+                          BsonDocument.parse("{id: 1234}"),
+                          BsonDocument.parse(
+                              "{ data: {peep: null, foo: 'bar'}, "
+                                  + "headers: { operation: 'INSERT'}}}")));
+              assertTrue(result.isPresent());
+              assertTrue(
+                  result.get() instanceof ReplaceOneModel,
+                  "result expected to be of type ReplaceOneModel");
+              assertNull(
+                  ((ReplaceOneModel<BsonDocument>) result.get()).getReplacement().get("peep"));
+            }),
+        dynamicTest(
+            "test operation " + OperationType.UPDATE,
+            () -> {
+              Optional<WriteModel<BsonDocument>> result =
+                  customMapping.handle(
+                      new SinkDocument(
+                          BsonDocument.parse("{id: 1234}"),
+                          BsonDocument.parse(
+                              "{message : { data: {peep: null, foo: 'bar'}, "
+                                  + "beforeData: {foo: 'foo', peep: 123}, headers: { operation: 'UPDATE'}}}")));
+              assertTrue(result.isPresent());
+              assertTrue(
+                  result.get() instanceof UpdateOneModel,
+                  "result expected to be of type UpdateOneModel");
+              assertNotNull(
+                  ((BsonDocument) ((UpdateOneModel<BsonDocument>) result.get()).getUpdate())
+                      .getDocument("$set")
+                      .get("peep"));
             }));
   }
 

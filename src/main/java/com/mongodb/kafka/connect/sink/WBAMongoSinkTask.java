@@ -136,6 +136,15 @@ public class WBAMongoSinkTask extends SinkTask {
       throw new ConnectException("Failed to start new task", e);
     }
     LOGGER.debug("Started MongoDB sink task");
+
+    if (props.get("key.extraction.enabled") != null
+        && props.get("key.extraction.enabled").equalsIgnoreCase("true")) {
+      LOGGER.info("Key extraction from value is enabled!");
+    }
+    if (props.get("remove.nulls.enabled") != null
+        && props.get("remove.nulls.enabled").equalsIgnoreCase("true")) {
+      LOGGER.info("Remove null entries is enabled!");
+    }
   }
 
   /**
